@@ -144,7 +144,7 @@ float SignedDistanceTest1(float3 p, float time)
 
 float SignedDistanceFromScene(float3 p, float time)
 {
-    return SignedDistanceSebastianNice1(p, time); //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+    return smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
 }
 
 float3 estimateNormal(float3 p, float time)
