@@ -1,0 +1,214 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+#include "./noiseSimplex.cginc"
+
+
+static const float PI = 3.14159265;
+RWStructuredBuffer<float> LoseBuffer;
+RWTexture2D<float4> RenderTexture;
+int2 Resolution;
+float3 CameraPosition;
+float Time;
+int RayMarchingIterations;
+float4x4 CameraToWorld;
+float4x4 CameraInverseProjection;
+
+
+float smoothMin(float dstA, float dstB, float k)
+{
+    float h = max(k-abs(dstA-dstB), 0) / k;
+    return min(dstA, dstB) - h*h*h*k*1/6.0;
+}
+
+float3 convertRgbToHsl(float3 c) { 
+    float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0); 
+    float4 p = lerp(float4(c.yz, K.wz), float4(c.yz, K.xy), step(c.z, c.y)); 
+    float4 q = lerp(float4(p.xyw, c.r), float4(c.x, p.yzx), step(p.x, c.x)); 
+    
+    float d = q.x - min(q.w, q.y); 
+    float e = 1.0 * pow(10, -10); 
+    return float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x); 
+} 
+
+float3 convertHslToRgb(float3 c) { 
+    float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0); 
+    float3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www); 
+    return c.z * lerp(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+float3 DirectionOfRayForPixel(float2 uv)
+{
+    // Transform the camera origin to world space
+    float3 origin = mul(CameraToWorld, float4(0.0, 0.0, 0.0, 1.0)).xyz;
+    
+    // Invert the perspective projection of the view-space position
+    float3 direction = mul(CameraInverseProjection, float4(uv, 0.0, 1.0)).xyz;
+
+    // Transform the direction from camera to world space and normalize
+    direction = mul(CameraToWorld, float4(direction, 0.0)).xyz;
+    direction = normalize(direction);
+
+    return direction;
+}
+
+float SignedDistanceFromMandelBulbOld(float3 p) {
+	float3 z = p;
+	float dr = 1.0;
+	float r = 0.0;//d
+    float Power = 8.0;
+
+	for (int i = 0; i < 1000; i++) {
+		r = length(z);
+		if (r>0.01) break;
+		
+		// convert to polar coordinates
+		float theta = acos(z.z/r);
+		float phi = atan(z.y / z.x);
+		dr = pow( r, Power-1.0)*Power*dr + 1.0;
+		
+		// scale and rotate the point
+		float zr = pow(r, Power);
+		theta = theta*Power;
+		phi = phi*Power;
+		
+		// convert back to cartesian coordinates
+		z = zr * float3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
+		z += p;
+	}
+	return 0.5*log(r)*r/dr;
+}
+
+float SignedDistanceFromMandelBulb(float3 p, float time)
+{
+    float3 z = p;
+    float dr = 1.0;
+    float r;
+    float power = time;
+
+    for (int i = 0; i < 15; i++)
+    {
+        r = length(z);
+        if (r < 0.1) { break; }
+
+        float theta = acos(z.z / r) * power;
+        float phi = atan2(z.y, z.x) * power;
+        float zr = pow(r, power);
+        dr = pow(r, power-1) * power * dr + 1;
+
+        z = zr * float3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
+        z += p;
+    }
+    return 0.5 * log(r) * r / dr;
+}
+
+float SignedDistanceFromSphere(float3 p, float3 spherePosition, float radius)
+{
+    return length(p - spherePosition) - radius;
+}
+
+float SignedDistanceSebastianNice1(float3 p, float time)
+{
+    float dstA = dot(sin(p * time / p.z * p.x), 1);
+    float dstB = cross(pow(abs(p.y%1000), time / 10), 1);
+    return lerp(dstA, dstB, 0.5);
+}
+
+float SignedDistanceSebastian(float3 p, float time)
+{
+    float dstA = dot(sin(p * time * pow(smoothMin(p.y, p.x, 1.0), 2)), 1);
+    float dstB = dot(pow(abs(p%32), time / 5) * p.z*p.y*p.x*time, 1) /(p.x/(time));
+    return lerp(dstA, dstB, 0.5);
+}
+
+float SignedDistanceNoise(float3 p, float time)
+{
+    return snoise(p * 0.16 * sin(time / 100)) + 1 - abs(sin(time / 10)); // sin(time / 10);
+}
+
+float SignedDistanceNoiseLandscape(float3 p, float time)
+{
+    float3 rounded = float3(floor(p.x / 10) * 10, floor(p.y / 10) * 10, floor(p.z / 10) * 10);
+    return min(p.y - p.x, snoise(float3(rounded.x, time, rounded.z)) * 10 + p.y) /* + snoise(rounded / 70) * 100 + snoise(rounded / 7) * 10 + snoise(rounded)*/;
+}
+
+float SignedDistanceTest(float3 p, float time)
+{
+    return snoise(p.x*p.y / 100 * float3(1.0, 1.0, 1.0)) - abs(sin(time/10));
+}
+
+float SignedDistanceTest1(float3 p, float time)
+{
+    return pow(p.x*p.z/p.y, time);
+}
+
+float SignedDistanceFromScene(float3 p, float time)
+{
+    return SignedDistanceSebastianNice1(p, time); //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+}
+
+float3 estimateNormal(float3 p, float time)
+{
+    float EPS = 0.001;
+    float xPl = SignedDistanceFromScene(float3(p.x + EPS, p.y      , p.z      ), time );
+    float xMi = SignedDistanceFromScene(float3(p.x - EPS, p.y      , p.z      ), time );
+    float yPl = SignedDistanceFromScene(float3(p.x      , p.y + EPS, p.z      ), time );
+    float yMi = SignedDistanceFromScene(float3(p.x      , p.y - EPS, p.z      ), time );
+    float zPl = SignedDistanceFromScene(float3(p.x      , p.y      , p.z + EPS), time );
+    float zMi = SignedDistanceFromScene(float3(p.x      , p.y      , p.z - EPS), time );
+
+    float xDiff = xPl - xMi;
+    float yDiff = yPl - yMi;
+    float zDiff = zPl - zMi;
+
+    return normalize(float3(xDiff, yDiff, zDiff));
+}
+
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // If outside texture return
+    if (id.x < 0 || id.x > (uint)Resolution.x || id.y < 0 || id.y > (uint)Resolution.y) { return; }
+
+    if (id.x == 0 && id.y == 0)
+    {
+        if (SignedDistanceFromScene(CameraPosition, Time) < 0)
+        {
+            //LoseBuffer[0] = 1;
+        }
+    }
+
+    float2 uv = float2((id.xy + float2(0.5, 0.5)) / Resolution.xy * 2.0 - 1.0);
+
+    float3 rayDirection = DirectionOfRayForPixel(uv);
+
+    bool notFound = false;
+    float3 rayPosition = CameraPosition;
+    for (int i = 0; i < RayMarchingIterations; i++)
+    {
+        float distance = SignedDistanceFromScene(rayPosition, Time);
+
+        if (distance < 0.01) { break; }
+
+        // Move ray to radius of circle
+        rayPosition += rayDirection * distance;
+
+        if (i > RayMarchingIterations || length(rayPosition - CameraPosition) > 100000) { notFound = true; }
+    }
+
+    float grayscale = abs(length(rayPosition - CameraPosition)) / 200;
+
+    float3 normal = estimateNormal(rayPosition, Time);
+    float3 lightPos = CameraPosition; // + float3(snoise(rayPosition.xyz) * 100000, snoise(rayPosition.yzx) * 100000, snoise(rayPosition.zxy) * 100000); //float3(2.0, 1.0, 1.0);
+    
+    float dotSN = 1.0; //lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), /*sin(Time / 10)*/ 1.0);
+
+    float3 color = lerp(float4(grayscale, grayscale, grayscale, 1.0), float4(0.5+0.5*normal, 1.0) * dotSN, 1.0/*abs(sin(PI/2+Time / 10))*/); //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
+    //color = convertHslToRgb(convertRgbToHsl(color) + float3(sin((Time / 3)+1)/2, 0, 0));
+
+
+    if (notFound) { color = float3(0, 0, 0); }
+
+    RenderTexture[id.xy] = float4(color.xyz, 1.0);
+}
