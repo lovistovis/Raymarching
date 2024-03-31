@@ -80,7 +80,7 @@ public class ShaderHandler : MonoBehaviour
 
         //position += transform.forward * moveSpeed;
         float currentMoveSpeed = Input.GetKey(KeyCode.LeftShift) ? moveSpeed * speedFactorOnShift : moveSpeed;
-        position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * moveSpeed;
+        position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
         
         if (Input.GetKey(KeyCode.LeftControl)) { lastTime += Time.deltaTime; }
         else if (Input.GetKey(KeyCode.LeftAlt)) { lastTime -= Time.deltaTime; }
