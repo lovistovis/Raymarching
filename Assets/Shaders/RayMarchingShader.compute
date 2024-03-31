@@ -1,7 +1,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-#include "./noiseSimplex.cginc"
+#include "noiseSimplex.cginc"
 
 
 static const float PI = 3.14159265;

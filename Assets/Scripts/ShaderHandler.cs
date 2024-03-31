@@ -57,6 +57,7 @@ public class ShaderHandler : MonoBehaviour
         position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * moveSpeed;
         
         if (Input.GetKey(KeyCode.LeftControl)) { lastTime += Time.deltaTime; }
+        else if (Input.GetKey(KeyCode.LeftAlt)) { lastTime -= Time.deltaTime; }
 
         mainCamera.fieldOfView -= Input.GetAxis("Mouse ScrollWheel") * zoomSensitivity;
         mainCamera.fieldOfView = Mathf.Clamp(mainCamera.fieldOfView, 0, 180);
