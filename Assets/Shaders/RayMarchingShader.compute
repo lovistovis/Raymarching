@@ -207,8 +207,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     float3 color = lerp(float4(grayscale, grayscale, grayscale, 1.0), float4(0.5+0.5*normal, 1.0) * dotSN, 1.0/*abs(sin(PI/2+Time / 10))*/); //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
     //color = convertHslToRgb(convertRgbToHsl(color) + float3(sin((Time / 3)+1)/2, 0, 0));
 
-
-    if (notFound) { color = float3(0, 0, 0); }
+    if (notFound) { color = float3(0.0, 0.5, 0.0); }
 
     RenderTexture[id.xy] = float4(color.xyz, 1.0);
 }

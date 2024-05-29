@@ -7,7 +7,7 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField] private ComputeShader rayMarchingShader;
     [SerializeField] private Vector3 startPos = new Vector3(2.0f, 1.0f, 0.5f);
     [SerializeField] private float baseMoveSpeed;
-    [FormerlySerializedAs("rayMarchingIterations")] [SerializeField][Range(1, 10000)] private int baseRayMarchingIterations;
+    [FormerlySerializedAs("rayMarchingIterations")][SerializeField][Range(1, 10000)] private int baseRayMarchingIterations;
     [SerializeField][Range(0, 2)] private float mouseSensitivity;
     [SerializeField][Range(0, 10)] private float zoomSensitivity;
     [SerializeField][Range(0, 10)] private float speedSensitivity;
@@ -81,15 +81,16 @@ public class ShaderHandler : MonoBehaviour
         //position += transform.forward * moveSpeed;
         float currentMoveSpeed = Input.GetKey(KeyCode.LeftShift) ? moveSpeed * speedFactorOnShift : moveSpeed;
         position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
-        
-        if (Input.GetKey(KeyCode.LeftControl)) { lastTime += Time.deltaTime; }
+
+        if (!Input.GetKey(KeyCode.LeftControl)) { lastTime += Time.deltaTime; }
         else if (Input.GetKey(KeyCode.LeftAlt)) { lastTime -= Time.deltaTime; }
 
-        if (Input.GetKeyDown(KeyCode.R)) {
+        if (Input.GetKeyDown(KeyCode.R))
+        {
             mainCamera.fieldOfView = 60;
             moveSpeed = baseMoveSpeed;
         }
-        
+
         if (Input.GetKey(KeyCode.M)) { position = startPos; }
 
         Debug.Log((Time.timeSinceLevelLoad * 100).ToString() + ", " + iterations.ToString());
