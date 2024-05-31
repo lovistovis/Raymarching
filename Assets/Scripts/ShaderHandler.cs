@@ -11,36 +11,67 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField][Range(0, 2)] private float mouseSensitivity;
     [SerializeField][Range(0, 10)] private float zoomSensitivity;
     [SerializeField][Range(0, 10)] private float speedSensitivity;
-    [SerializeField][Range(0, 1)] private float speedFactorOnShift;
+    [SerializeField][Range(0, 10)] private float timeSensitivity;
+    [SerializeField][Range(1, 2)] private float speedFactorOnShift;
 
     private RenderTexture renderTexture;
-    private Vector3 position;
     private Quaternion cameraRotation = Quaternion.identity;
     private Vector3 cameraDirection = new Vector3(0, 0, 0);
     private Camera mainCamera;
 
     private float cameraRotationX = 0;
     private float cameraRotationY = 0;
+    private float timeSpeed = 1;
+    private bool moveTime = true;
     private float moveSpeed;
     private int iterations;
-
+    private float randomRange = 1000f;
     private float lastTime = 0;
+    private int functionNum = 0;
 
+    public static ShaderHandler Instance;
+
+
+    public void SetLevelFunction(int num)
+    {
+        functionNum = num;
+    }
+
+    public void SetTimeSpeed(float speed)
+    {
+        timeSpeed = speed;
+    }
+
+    public void SetTime(float time)
+    {
+        lastTime = time;
+    }
+
+
+    private void ResolutionCheck()
+    {
+        if (renderTexture == null || renderTexture.width != Screen.width || renderTexture.height != Screen.height)
+        {
+            renderTexture = new RenderTexture(Screen.width, Screen.height, 24);
+            renderTexture.enableRandomWrite = true;
+        }
+    }
 
     private void Awake()
     {
-        mainCamera = GetComponent<Camera>();
+        Instance = this;
     }
 
     private void Start()
     {
-        // Set up render texture
-        renderTexture = new RenderTexture(Screen.width, Screen.height, 24);
-        renderTexture.enableRandomWrite = true;
+        mainCamera = Camera.main;
 
-        position = startPos;
+        transform.position = startPos;
         moveSpeed = baseMoveSpeed;
         iterations = baseRayMarchingIterations;
+
+        // Set up render texture
+        ResolutionCheck();
 
         // Lock and hide cursor
         Cursor.lockState = CursorLockMode.Locked;
@@ -49,6 +80,8 @@ public class ShaderHandler : MonoBehaviour
 
     private void Update()
     {
+        ResolutionCheck();
+
         // Camera rotation
         cameraRotationX += Input.GetAxis("Mouse X") * mouseSensitivity;
         cameraRotationY -= Input.GetAxis("Mouse Y") * mouseSensitivity;
@@ -57,6 +90,7 @@ public class ShaderHandler : MonoBehaviour
 
         transform.localEulerAngles = new Vector3(cameraRotationY, cameraRotationX, 0);
 
+        //Debug.Log(functionNum);
 
         // Movement
         //float moveSpeed = walkSpeed + Time.timeSinceLevelLoad / 100;
@@ -66,6 +100,10 @@ public class ShaderHandler : MonoBehaviour
         if (Input.GetKey(KeyCode.E))
         {
             moveSpeed *= Mathf.Abs(1 + scroll * speedSensitivity);
+        }
+        else if (Input.GetKey(KeyCode.F))
+        {
+            timeSpeed *= Mathf.Abs(1 + scroll * speedSensitivity);
         }
         else if (Input.GetKey(KeyCode.I))
         {
@@ -80,10 +118,38 @@ public class ShaderHandler : MonoBehaviour
 
         //position += transform.forward * moveSpeed;
         float currentMoveSpeed = Input.GetKey(KeyCode.LeftShift) ? moveSpeed * speedFactorOnShift : moveSpeed;
-        position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
+        transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
 
-        if (!Input.GetKey(KeyCode.LeftControl)) { lastTime += Time.deltaTime; }
-        else if (Input.GetKey(KeyCode.LeftAlt)) { lastTime -= Time.deltaTime; }
+        //if (!Input.GetKey(KeyCode.LeftControl)) { lastTime += Time.deltaTime; }
+        //else if (Input.GetKey(KeyCode.LeftAlt)) { lastTime -= Time.deltaTime; }
+        if (moveTime) { lastTime += Time.deltaTime * timeSpeed; }
+
+        if (Input.GetKeyDown(KeyCode.End))
+        {
+            moveTime = true;
+        }
+
+        if (Input.GetKeyUp(KeyCode.End))
+        {
+            moveTime = false;
+        }
+
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            mainCamera.fieldOfView = 60;
+            moveSpeed = baseMoveSpeed;
+            timeSpeed = 1f;
+        }
+
+        if (Input.GetKeyDown(KeyCode.LeftControl))
+        {
+            moveTime = !moveTime;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            timeSpeed = timeSpeed * -1;
+        }
 
         if (Input.GetKeyDown(KeyCode.R))
         {
@@ -91,9 +157,14 @@ public class ShaderHandler : MonoBehaviour
             moveSpeed = baseMoveSpeed;
         }
 
-        if (Input.GetKey(KeyCode.M)) { position = startPos; }
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            lastTime = 0;
+        }
 
-        Debug.Log((Time.timeSinceLevelLoad * 100).ToString() + ", " + iterations.ToString());
+        if (Input.GetKey(KeyCode.M)) { transform.position = startPos; }
+
+        //Debug.Log((Time.timeSinceLevelLoad * 100).ToString() + ", " + iterations.ToString());
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
@@ -103,12 +174,16 @@ public class ShaderHandler : MonoBehaviour
         ComputeBuffer loseBuffer = new ComputeBuffer(1, sizeof(float));
         loseBuffer.SetData(new float[] { 0 });
 
+        Vector3 position = transform.position / 0.001f;
+        rayMarchingShader.SetTexture(kernelIndex, "SourceTexture", source);
         rayMarchingShader.SetTexture(kernelIndex, "RenderTexture", renderTexture);
         rayMarchingShader.SetBuffer(kernelIndex, "LoseBuffer", loseBuffer);
         rayMarchingShader.SetInts("Resolution", renderTexture.width, renderTexture.height);
         rayMarchingShader.SetInt("RayMarchingIterations", iterations);
+        rayMarchingShader.SetInt("FunctionNum", functionNum);
         rayMarchingShader.SetFloats("CameraPosition", position.x, position.y, position.z);
         rayMarchingShader.SetFloat("Time", lastTime);
+        rayMarchingShader.SetFloat("Seed", Random.Range(-randomRange, randomRange));
         rayMarchingShader.SetMatrix("CameraToWorld", mainCamera.cameraToWorldMatrix);
         rayMarchingShader.SetMatrix("CameraInverseProjection", mainCamera.projectionMatrix.inverse);
 
@@ -121,7 +196,6 @@ public class ShaderHandler : MonoBehaviour
             Debug.Log("Lost");
             SceneManager.LoadScene(0);
         }
-
         loseBuffer.Dispose();
 
         // Copy contents from new render texture to camera destination

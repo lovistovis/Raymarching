@@ -4,16 +4,36 @@
 #include "noiseSimplex.cginc"
 
 
-static const float PI = 3.14159265;
+#define PI 3.14159265
+#define NOISE_MULT 0.1
+#define NOISE_PRE_OFFSET -0.5
+#define NOISE_POST_OFFSET 1.0
+#define NOT_FOUND_COLOR float3(0.0, 0.5, 0.0)
+#define MIN_RAY_DIST 0.0001
+#define MAX_RAY_DIST 1000000000
+
 RWStructuredBuffer<float> LoseBuffer;
+Texture2D<float4> SourceTexture;
 RWTexture2D<float4> RenderTexture;
 int2 Resolution;
 float3 CameraPosition;
 float Time;
+float Seed;
 int RayMarchingIterations;
+int FunctionNum;
 float4x4 CameraToWorld;
 float4x4 CameraInverseProjection;
 
+
+// Source: https://stackoverflow.com/questions/5149544/can-i-generate-a-random-number-inside-a-pixel-shader
+float random(float2 p)
+{
+    float2 K1 = float2(
+        23.14069263277926, // e^pi (Gelfond's constant)
+        2.665144142690225 // 2^sqrt(2) (Gelfondâ€“Schneider constant)
+    );
+    return frac(cos(dot(p, K1)) * 12345.6789);
+}
 
 float smoothMin(float dstA, float dstB, float k)
 {
@@ -37,43 +57,28 @@ float3 convertHslToRgb(float3 c) {
     return c.z * lerp(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-float3 DirectionOfRayForPixel(float2 uv)
-{
-    // Transform the camera origin to world space
-    float3 origin = mul(CameraToWorld, float4(0.0, 0.0, 0.0, 1.0)).xyz;
-    
-    // Invert the perspective projection of the view-space position
-    float3 direction = mul(CameraInverseProjection, float4(uv, 0.0, 1.0)).xyz;
-
-    // Transform the direction from camera to world space and normalize
-    direction = mul(CameraToWorld, float4(direction, 0.0)).xyz;
-    direction = normalize(direction);
-
-    return direction;
-}
-
 float SignedDistanceFromMandelBulbOld(float3 p) {
 	float3 z = p;
 	float dr = 1.0;
 	float r = 0.0;//d
-    float Power = 8.0;
+    float Power = Time;
 
-	for (int i = 0; i < 1000; i++) {
+	for (int i = 0; i < 100; i++) {
 		r = length(z);
-		if (r>0.01) break;
+		if (r > 4) break;
 		
 		// convert to polar coordinates
-		float theta = acos(z.z/r);
+		float theta = acos(z.z / r);
 		float phi = atan(z.y / z.x);
-		dr = pow( r, Power-1.0)*Power*dr + 1.0;
+		dr = pow(r, Power - 1.0) * Power * dr + 1.0;
 		
 		// scale and rotate the point
 		float zr = pow(r, Power);
-		theta = theta*Power;
-		phi = phi*Power;
+		theta = theta * Power;
+		phi = phi * Power;
 		
 		// convert back to cartesian coordinates
-		z = zr * float3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
+		z = zr * float3(sin(theta) * cos(phi), sin(phi) * sin(theta), cos(theta));
 		z += p;
 	}
 	return 0.5*log(r)*r/dr;
@@ -121,6 +126,12 @@ float SignedDistanceSebastian(float3 p, float time)
     return lerp(dstA, dstB, 0.5);
 }
 
+float SignedDistanceFractalNoise(float3 p, float time)
+{
+    float3 pos = p;//* sin(time / 10);
+    return snoise(pos) + 0.5;//+ snoise(pos * 10) / 100 + snoise(pos * 100) / 1000 + 0.5;// - sin(time / 10); // sin(time / 10);
+}
+
 float SignedDistanceNoise(float3 p, float time)
 {
     return snoise(p * 0.16 * sin(time / 100)) + 1 - abs(sin(time / 10)); // sin(time / 10);
@@ -142,20 +153,72 @@ float SignedDistanceTest1(float3 p, float time)
     return pow(p.x*p.z/p.y, time);
 }
 
-float SignedDistanceFromScene(float3 p, float time)
-{
-    return SignedDistanceSebastian(p, time); //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+float SignedDistanceParabola(float3 p, float time) {
+    float numerator = pow(p.x*p.x + p.y*p.y, time / 2) - p.z;
+    float denominator = sqrt(time*time * pow(p.x*p.x + p.y*p.y, time - 1) + 1); //sqrt(4 * p.x*p.x + 4 * p.y*p.y + 1);
+    return numerator / denominator;
 }
 
-float3 estimateNormal(float3 p, float time)
+float SignedDistanceDoubleParabola(float3 p, float time) {
+    return min(
+        SignedDistanceParabola(float3(p.x * -1, p.xy), time),
+        SignedDistanceParabola(float3(p.x, p.xy), time)
+    );
+}
+
+float SignedDistanceFromScene(float3 p, float time)
 {
-    float EPS = 0.001;
-    float xPl = SignedDistanceFromScene(float3(p.x + EPS, p.y      , p.z      ), time );
-    float xMi = SignedDistanceFromScene(float3(p.x - EPS, p.y      , p.z      ), time );
-    float yPl = SignedDistanceFromScene(float3(p.x      , p.y + EPS, p.z      ), time );
-    float yMi = SignedDistanceFromScene(float3(p.x      , p.y - EPS, p.z      ), time );
-    float zPl = SignedDistanceFromScene(float3(p.x      , p.y      , p.z + EPS), time );
-    float zMi = SignedDistanceFromScene(float3(p.x      , p.y      , p.z - EPS), time );
+    if (FunctionNum == 0) {
+        return SignedDistanceFromSphere(p, float3(10.0, 0.0, 0.0), time);
+    } else if (FunctionNum == 1) {
+        return SignedDistanceDoubleParabola(p, time); //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+    }
+    //return SignedDistanceTest(p, time);
+    //return SignedDistanceNoise(p, time);
+    //return p * p;
+    //return SignedDistanceFromMandelBulbOld(p);
+    return SignedDistanceSebastianNice1(p, time);
+    //return SignedDistanceFractalNoise(p, time);
+    return lerp(
+        SignedDistanceNoise(p, time), //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+        SignedDistanceNoise(p*10, time),
+        abs(sin(SignedDistanceNoise(p, time) - abs(sin(time))))
+    );
+
+    /*
+    if (SignedDistanceNoise(p, time) < abs(sin(time))) {
+        return SignedDistanceNoise(p, time); //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+    }
+    else {
+        return SignedDistanceNoise(p*10, time);
+    }
+    */
+}
+
+float3 DirectionOfRayForPixel(float2 uv)
+{
+    // Transform the camera origin to world space
+    float3 origin = mul(CameraToWorld, float4(0.0, 0.0, 0.0, 1.0)).xyz;
+    
+    // Invert the perspective projection of the view-space position
+    float3 direction = mul(CameraInverseProjection, float4(uv, 0.0, 1.0)).xyz;
+
+    // Transform the direction from camera to world space and normalize
+    direction = mul(CameraToWorld, float4(direction, 0.0)).xyz;
+    direction = normalize(direction);
+
+    return direction;
+}
+
+float3 EstimateNormal(float3 p, float time)
+{
+    float EPS = 0.00001;
+    float xPl = SignedDistanceFromScene(float3(p.x + EPS, p.y      , p.z      ), time);
+    float xMi = SignedDistanceFromScene(float3(p.x - EPS, p.y      , p.z      ), time);
+    float yPl = SignedDistanceFromScene(float3(p.x      , p.y + EPS, p.z      ), time);
+    float yMi = SignedDistanceFromScene(float3(p.x      , p.y - EPS, p.z      ), time);
+    float zPl = SignedDistanceFromScene(float3(p.x      , p.y      , p.z + EPS), time);
+    float zMi = SignedDistanceFromScene(float3(p.x      , p.y      , p.z - EPS), time);
 
     float xDiff = xPl - xMi;
     float yDiff = yPl - yMi;
@@ -164,6 +227,46 @@ float3 estimateNormal(float3 p, float time)
     return normalize(float3(xDiff, yDiff, zDiff));
 }
 
+float3 HitColor(float3 hit, float3 pos, float time) {
+    float3 normal = EstimateNormal(hit, time);
+    float3 lightPos = pos + float3(time / 100.0, 0.0, 0.0);//float3(snoise(rayPosition.xyz) * 100000, snoise(rayPosition.yzx) * 100000, snoise(rayPosition.zxy) * 100000); //float3(2.0, 1.0, 1.0);
+
+    float grayscale = length(hit - pos) / 2000;
+    
+    float dotSN = 1.0;//lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), /*sin(Time / 10)*/ 1.0);
+
+    float3 color = lerp(float4(grayscale, grayscale, grayscale, 1.0), float4(0.5+0.5*normal, 1.0) * dotSN, 0.0/*abs(sin(Time)*//*abs(sin(PI/2+Time / 10))*/); //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
+
+    return color;
+}
+
+float3 PixelColor(float2 uv, float3 pos, float time, int iterations) {
+    float3 dir = DirectionOfRayForPixel(uv);
+    float3 posCurrent = pos;
+    for (int i = 0; i < iterations; i++)
+    {
+        float dist = SignedDistanceFromScene(posCurrent, time);
+        // Hit
+        if (dist < MIN_RAY_DIST) {
+            return HitColor(posCurrent, pos, time);
+        }
+        // Move ray to radius of circle
+        posCurrent += dir * dist;
+        if (length(posCurrent - pos) > MAX_RAY_DIST) {
+            return NOT_FOUND_COLOR;
+        }
+    }
+    return NOT_FOUND_COLOR;
+}
+
+float3 PostColor(float3 color, uint3 id, float time) {
+    // 0 <= noise <= 1
+    float noise = random(float2((float)id.x, (float)id.y) + snoise(float3(-Seed, Seed*2, Seed*0.5)));
+    noise = (noise + NOISE_PRE_OFFSET) * NOISE_MULT + NOISE_POST_OFFSET;
+    color = color * noise;
+    //color = convertHslToRgb(convertRgbToHsl(color) + float3(sin((Time / 3)+1)/2, 0, 0));
+    return color;
+}
 
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
@@ -181,33 +284,14 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     float2 uv = float2((id.xy + float2(0.5, 0.5)) / Resolution.xy * 2.0 - 1.0);
 
-    float3 rayDirection = DirectionOfRayForPixel(uv);
+    float3 color = PixelColor(uv, CameraPosition * 0.001, Time, RayMarchingIterations);
 
-    bool notFound = false;
-    float3 rayPosition = CameraPosition;
-    for (int i = 0; i < RayMarchingIterations; i++)
-    {
-        float distance = SignedDistanceFromScene(rayPosition, Time);
+    float4 source = SourceTexture[id.xy];
+    float sourceAlpha = source.w;
 
-        if (distance < 0.01) { break; }
+    color = source.xyz * sourceAlpha + color * (1.0 - sourceAlpha);
 
-        // Move ray to radius of circle
-        rayPosition += rayDirection * distance;
+    color = PostColor(color, id, Time);
 
-        if (i > RayMarchingIterations || length(rayPosition - CameraPosition) > 100000) { notFound = true; }
-    }
-
-    float grayscale = abs(length(rayPosition - CameraPosition)) / 200;
-
-    float3 normal = estimateNormal(rayPosition, Time);
-    float3 lightPos = CameraPosition; // + float3(snoise(rayPosition.xyz) * 100000, snoise(rayPosition.yzx) * 100000, snoise(rayPosition.zxy) * 100000); //float3(2.0, 1.0, 1.0);
-    
-    float dotSN = 1.0; //lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), /*sin(Time / 10)*/ 1.0);
-
-    float3 color = lerp(float4(grayscale, grayscale, grayscale, 1.0), float4(0.5+0.5*normal, 1.0) * dotSN, 1.0/*abs(sin(PI/2+Time / 10))*/); //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
-    //color = convertHslToRgb(convertRgbToHsl(color) + float3(sin((Time / 3)+1)/2, 0, 0));
-
-    if (notFound) { color = float3(0.0, 0.5, 0.0); }
-
-    RenderTexture[id.xy] = float4(color.xyz, 1.0);
+    RenderTexture[id.xy] = float4(color, 1.0);
 }
