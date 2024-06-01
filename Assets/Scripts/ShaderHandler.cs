@@ -5,7 +5,6 @@ using UnityEngine.Serialization;
 public class ShaderHandler : MonoBehaviour
 {
     [SerializeField] private ComputeShader rayMarchingShader;
-    [SerializeField] private Vector3 startPos = new Vector3(2.0f, 1.0f, 0.5f);
     [SerializeField] private float baseMoveSpeed;
     [FormerlySerializedAs("rayMarchingIterations")][SerializeField][Range(1, 10000)] private int baseRayMarchingIterations;
     [SerializeField][Range(0, 2)] private float mouseSensitivity;
@@ -15,12 +14,8 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField][Range(1, 2)] private float speedFactorOnShift;
 
     private RenderTexture renderTexture;
-    private Quaternion cameraRotation = Quaternion.identity;
-    private Vector3 cameraDirection = new Vector3(0, 0, 0);
     private Camera mainCamera;
 
-    private float cameraRotationX = 0;
-    private float cameraRotationY = 0;
     private float timeSpeed = 1;
     private bool moveTime = true;
     private float moveSpeed;
@@ -28,6 +23,8 @@ public class ShaderHandler : MonoBehaviour
     private float randomRange = 1000f;
     private float lastTime = 0;
     private int functionNum = 0;
+    private float cameraAngleX = 0;
+    private float cameraAngleY = 0;
 
     public static ShaderHandler Instance;
 
@@ -45,6 +42,11 @@ public class ShaderHandler : MonoBehaviour
     public void SetTime(float time)
     {
         lastTime = time;
+    }
+    public void SetRotation(Vector2 angles)
+    {
+        cameraAngleX = angles.x;
+        cameraAngleY = angles.y;
     }
 
 
@@ -66,7 +68,6 @@ public class ShaderHandler : MonoBehaviour
     {
         mainCamera = Camera.main;
 
-        transform.position = startPos;
         moveSpeed = baseMoveSpeed;
         iterations = baseRayMarchingIterations;
 
@@ -82,13 +83,16 @@ public class ShaderHandler : MonoBehaviour
     {
         ResolutionCheck();
 
-        // Camera rotation
-        cameraRotationX += Input.GetAxis("Mouse X") * mouseSensitivity;
-        cameraRotationY -= Input.GetAxis("Mouse Y") * mouseSensitivity;
+        cameraAngleX -= Input.GetAxis("Mouse Y") * mouseSensitivity;
+        cameraAngleY += Input.GetAxis("Mouse X") * mouseSensitivity;
 
-        cameraRotationY = Mathf.Clamp(cameraRotationY, -90, 90);
+        cameraAngleX = Mathf.Clamp(cameraAngleX, -90, 90);
 
-        transform.localEulerAngles = new Vector3(cameraRotationY, cameraRotationX, 0);
+        Vector3 angles = transform.localEulerAngles;
+        if (cameraAngleX != angles.x || cameraAngleY != angles.y)
+        {
+            transform.localEulerAngles = new Vector3(cameraAngleX, cameraAngleY, 0f);
+        }
 
         //Debug.Log(functionNum);
 
@@ -118,11 +122,24 @@ public class ShaderHandler : MonoBehaviour
 
         //position += transform.forward * moveSpeed;
         float currentMoveSpeed = Input.GetKey(KeyCode.LeftShift) ? moveSpeed * speedFactorOnShift : moveSpeed;
+        if (functionNum >= 0 && functionNum <= 2)
+        {
+            currentMoveSpeed *= (transform.position.magnitude - 0.5f) / 10f;
+        }
+        else if (functionNum == 3)
+        {
+            currentMoveSpeed *= 10 + (transform.position.magnitude - 9.0f) / 1000f;
+        }
+        else if (functionNum == 4)
+        {
+            currentMoveSpeed *= 1 + (transform.position.magnitude - 0.5f) / 1000f;
+        }
         transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
 
-        //if (!Input.GetKey(KeyCode.LeftControl)) { lastTime += Time.deltaTime; }
-        //else if (Input.GetKey(KeyCode.LeftAlt)) { lastTime -= Time.deltaTime; }
-        if (moveTime) { lastTime += Time.deltaTime * timeSpeed; }
+        if (moveTime)
+        {
+            lastTime += Time.deltaTime * timeSpeed;
+        }
 
         if (Input.GetKeyDown(KeyCode.End))
         {
@@ -161,10 +178,6 @@ public class ShaderHandler : MonoBehaviour
         {
             lastTime = 0;
         }
-
-        if (Input.GetKey(KeyCode.M)) { transform.position = startPos; }
-
-        //Debug.Log((Time.timeSinceLevelLoad * 100).ToString() + ", " + iterations.ToString());
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
@@ -174,12 +187,19 @@ public class ShaderHandler : MonoBehaviour
         ComputeBuffer loseBuffer = new ComputeBuffer(1, sizeof(float));
         loseBuffer.SetData(new float[] { 0 });
 
-        Vector3 position = transform.position / 0.001f;
+        int currentIterations = iterations;
+
+        //if (functionNum == 5)
+        //{
+        //    iterations = 15;
+        //}
+
+        Vector3 position = transform.position;
         rayMarchingShader.SetTexture(kernelIndex, "SourceTexture", source);
         rayMarchingShader.SetTexture(kernelIndex, "RenderTexture", renderTexture);
         rayMarchingShader.SetBuffer(kernelIndex, "LoseBuffer", loseBuffer);
         rayMarchingShader.SetInts("Resolution", renderTexture.width, renderTexture.height);
-        rayMarchingShader.SetInt("RayMarchingIterations", iterations);
+        rayMarchingShader.SetInt("RayMarchingIterations", currentIterations);
         rayMarchingShader.SetInt("FunctionNum", functionNum);
         rayMarchingShader.SetFloats("CameraPosition", position.x, position.y, position.z);
         rayMarchingShader.SetFloat("Time", lastTime);
@@ -191,14 +211,19 @@ public class ShaderHandler : MonoBehaviour
 
         float[] data = new float[1];
         loseBuffer.GetData(data);
-        if (data[0] == 1)
+        if (data[0] == 1 && (functionNum <= 3))
         {
-            Debug.Log("Lost");
-            SceneManager.LoadScene(0);
+            GameHandler.Instance.ReloadLevel();
+            //SceneManager.LoadScene(0);
         }
         loseBuffer.Dispose();
 
         // Copy contents from new render texture to camera destination
         Graphics.Blit(renderTexture, destination);
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        GameHandler.Instance.HitTarget(other);
     }
 }

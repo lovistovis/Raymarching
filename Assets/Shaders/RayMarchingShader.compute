@@ -35,7 +35,7 @@ float random(float2 p)
     return frac(cos(dot(p, K1)) * 12345.6789);
 }
 
-float smoothMin(float dstA, float dstB, float k)
+float SmoothMin(float dstA, float dstB, float k)
 {
     float h = max(k-abs(dstA-dstB), 0) / k;
     return min(dstA, dstB) - h*h*h*k*1/6.0;
@@ -121,7 +121,7 @@ float SignedDistanceSebastianNice1(float3 p, float time)
 
 float SignedDistanceSebastian(float3 p, float time)
 {
-    float dstA = dot(sin(p * time * pow(smoothMin(p.y, p.x, 1.0), 2)), 1);
+    float dstA = dot(sin(p * time * pow(SmoothMin(p.y, p.x, 1.0), 2)), 1);
     float dstB = dot(pow(abs(p%32), time / 5) * p.z*p.y*p.x*time, 1) /(p.x/(time));
     return lerp(dstA, dstB, 0.5);
 }
@@ -161,18 +161,41 @@ float SignedDistanceParabola(float3 p, float time) {
 
 float SignedDistanceDoubleParabola(float3 p, float time) {
     return min(
-        SignedDistanceParabola(float3(p.x * -1, p.xy), time),
-        SignedDistanceParabola(float3(p.x, p.xy), time)
+        SignedDistanceParabola(float3(p.xy, p.z * -1 - 1), time),
+        SignedDistanceParabola(float3(p.xy, p.z - 1), time)
     );
+}
+
+float SingedDistanceHyperEllipsoid(float3 p, float a, float b, float c) {
+    return sqrt(pow(p.x/a, 2) + pow(p.y/b, 2) + pow(p.z/c, 2)) - 1;
+}
+
+float SingedDistanceGyroid(float3 p) {
+    return sin(p.x) * cos(p.y) + sin(p.y) * cos(p.z) + sin(p.z) * cos(p.x);
 }
 
 float SignedDistanceFromScene(float3 p, float time)
 {
     if (FunctionNum == 0) {
-        return SignedDistanceFromSphere(p, float3(10.0, 0.0, 0.0), time);
-    } else if (FunctionNum == 1) {
-        return SignedDistanceDoubleParabola(p, time); //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+        return SignedDistanceFromSphere(p, float3(0.0, 0.0, 0.0), 5.0);
+    } else if (FunctionNum == 1 || FunctionNum == 2) {
+        return SignedDistanceDoubleParabola(p, time); //SmoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+    } else if (FunctionNum == 3) {
+        return SignedDistanceNoise(p*10, time);
+    } else if (FunctionNum == 4) {
+        return SignedDistanceNoise(p*50, time);
+    } else if (FunctionNum == 5) {
+        return SingedDistanceGyroid(p);
+    } else if (FunctionNum == 6) {
+        return SingedDistanceHyperEllipsoid(p, 1.0, 2.0, time);
     }
+    /*
+    return lerp(
+        SignedDistanceNoise(p, time), //SmoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+        SignedDistanceNoise(p*10, time),
+        abs(sin(SignedDistanceNoise(p, time)))
+    );
+    */
     //return SignedDistanceTest(p, time);
     //return SignedDistanceNoise(p, time);
     //return p * p;
@@ -180,14 +203,14 @@ float SignedDistanceFromScene(float3 p, float time)
     return SignedDistanceSebastianNice1(p, time);
     //return SignedDistanceFractalNoise(p, time);
     return lerp(
-        SignedDistanceNoise(p, time), //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+        SignedDistanceNoise(p, time), //SmoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
         SignedDistanceNoise(p*10, time),
         abs(sin(SignedDistanceNoise(p, time) - abs(sin(time))))
     );
 
     /*
     if (SignedDistanceNoise(p, time) < abs(sin(time))) {
-        return SignedDistanceNoise(p, time); //smoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+        return SignedDistanceNoise(p, time); //SmoothMin(SignedDistanceSebastianNice1(p, time), SignedDistanceSebastian(p, time), 1.0); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
     }
     else {
         return SignedDistanceNoise(p*10, time);
@@ -231,13 +254,30 @@ float3 HitColor(float3 hit, float3 pos, float time) {
     float3 normal = EstimateNormal(hit, time);
     float3 lightPos = pos + float3(time / 100.0, 0.0, 0.0);//float3(snoise(rayPosition.xyz) * 100000, snoise(rayPosition.yzx) * 100000, snoise(rayPosition.zxy) * 100000); //float3(2.0, 1.0, 1.0);
 
-    float grayscale = length(hit - pos) / 2000;
+    float grayscale = length(hit - pos) / 200;
     
     float dotSN = 1.0;//lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), /*sin(Time / 10)*/ 1.0);
 
-    float3 color = lerp(float4(grayscale, grayscale, grayscale, 1.0), float4(0.5+0.5*normal, 1.0) * dotSN, 0.0/*abs(sin(Time)*//*abs(sin(PI/2+Time / 10))*/); //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
+    float grayscaleFactor = 0.0;
+    if (FunctionNum >= 5) {
+        grayscaleFactor = 1.0;
+    }
+    float3 color = lerp(float4(grayscale, grayscale, grayscale, 1.0), float4(0.5+0.5*normal, 1.0) * dotSN, grayscaleFactor/*abs(sin(Time)*//*abs(sin(PI/2+Time / 10))*/); //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
 
     return color;
+}
+
+float3 NotFoundColor(float3 color) {
+    if (FunctionNum == 0 || FunctionNum == 1 || FunctionNum == 2) {
+        return float3(1.0, 1.0, 1.0);
+    }
+    if (FunctionNum == 3) {
+        return color;
+    }
+    if (FunctionNum >= 4) {
+        return color;
+    }
+    return NOT_FOUND_COLOR;
 }
 
 float3 PixelColor(float2 uv, float3 pos, float time, int iterations) {
@@ -245,7 +285,7 @@ float3 PixelColor(float2 uv, float3 pos, float time, int iterations) {
     float3 posCurrent = pos;
     for (int i = 0; i < iterations; i++)
     {
-        float dist = SignedDistanceFromScene(posCurrent, time);
+        float dist = SignedDistanceFromScene(posCurrent*pos.x, time);
         // Hit
         if (dist < MIN_RAY_DIST) {
             return HitColor(posCurrent, pos, time);
@@ -253,10 +293,10 @@ float3 PixelColor(float2 uv, float3 pos, float time, int iterations) {
         // Move ray to radius of circle
         posCurrent += dir * dist;
         if (length(posCurrent - pos) > MAX_RAY_DIST) {
-            return NOT_FOUND_COLOR;
+            return NotFoundColor(HitColor(posCurrent, pos, time));
         }
     }
-    return NOT_FOUND_COLOR;
+    return NotFoundColor(HitColor(posCurrent, pos, time));
 }
 
 float3 PostColor(float3 color, uint3 id, float time) {
@@ -278,13 +318,13 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     {
         if (SignedDistanceFromScene(CameraPosition, Time) < 0)
         {
-            //LoseBuffer[0] = 1;
+            LoseBuffer[0] = 1;
         }
     }
 
     float2 uv = float2((id.xy + float2(0.5, 0.5)) / Resolution.xy * 2.0 - 1.0);
 
-    float3 color = PixelColor(uv, CameraPosition * 0.001, Time, RayMarchingIterations);
+    float3 color = PixelColor(uv, CameraPosition, Time, RayMarchingIterations);
 
     float4 source = SourceTexture[id.xy];
     float sourceAlpha = source.w;
