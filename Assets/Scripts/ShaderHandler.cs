@@ -43,6 +43,17 @@ public class ShaderHandler : MonoBehaviour
     {
         lastTime = time;
     }
+
+    public float GetTime()
+    {
+        return lastTime;
+    }
+
+    public float GetTimeSpeed()
+    {
+        return timeSpeed;
+    }
+
     public void SetRotation(Vector2 angles)
     {
         cameraAngleX = angles.x;
@@ -134,6 +145,10 @@ public class ShaderHandler : MonoBehaviour
         {
             currentMoveSpeed *= 1 + (transform.position.magnitude - 0.5f) / 1000f;
         }
+        else if (functionNum == 6)
+        {
+            currentMoveSpeed *= 10;
+        }
         transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
 
         if (moveTime)
@@ -211,7 +226,7 @@ public class ShaderHandler : MonoBehaviour
 
         float[] data = new float[1];
         loseBuffer.GetData(data);
-        if (data[0] == 1 && (functionNum <= 3))
+        if (data[0] == 1 && (functionNum >= 3))
         {
             GameHandler.Instance.ReloadLevel();
             //SceneManager.LoadScene(0);

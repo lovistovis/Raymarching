@@ -66,10 +66,7 @@ public class GameHandler : MonoBehaviour
         currentLevel = num;
         Level level = levels[num];
         target = level.target;
-        if (num != 5)
-        {
-            target.gameObject.SetActive(true);
-        }
+        target.gameObject.SetActive(true);
         Camera.main.transform.position = level.cameraEmpty.position;
         ShaderHandler.Instance.SetRotation((Vector2)level.cameraEmpty.localEulerAngles);
         ShaderHandler.Instance.SetLevelFunction(num);

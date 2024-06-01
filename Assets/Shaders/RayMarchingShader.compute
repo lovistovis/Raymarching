@@ -187,7 +187,7 @@ float SignedDistanceFromScene(float3 p, float time)
     } else if (FunctionNum == 5) {
         return SingedDistanceGyroid(p);
     } else if (FunctionNum == 6) {
-        return SingedDistanceHyperEllipsoid(p, 1.0, 2.0, time);
+        return SingedDistanceHyperEllipsoid((p*0.5) % 10, 1.0, 2.0, time);
     }
     /*
     return lerp(
@@ -285,7 +285,7 @@ float3 PixelColor(float2 uv, float3 pos, float time, int iterations) {
     float3 posCurrent = pos;
     for (int i = 0; i < iterations; i++)
     {
-        float dist = SignedDistanceFromScene(posCurrent*pos.x, time);
+        float dist = SignedDistanceFromScene(posCurrent, time);
         // Hit
         if (dist < MIN_RAY_DIST) {
             return HitColor(posCurrent, pos, time);
