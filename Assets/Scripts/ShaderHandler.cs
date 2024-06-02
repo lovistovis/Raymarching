@@ -94,6 +94,13 @@ public class ShaderHandler : MonoBehaviour
     {
         ResolutionCheck();
 
+        if (moveTime)
+        {
+            lastTime += Time.deltaTime * timeSpeed;
+        }
+
+        if (functionNum == 8) { return; }
+
         cameraAngleX -= Input.GetAxis("Mouse Y") * mouseSensitivity;
         cameraAngleY += Input.GetAxis("Mouse X") * mouseSensitivity;
 
@@ -105,13 +112,9 @@ public class ShaderHandler : MonoBehaviour
             transform.localEulerAngles = new Vector3(cameraAngleX, cameraAngleY, 0f);
         }
 
-        //Debug.Log(functionNum);
-
-        // Movement
-        //float moveSpeed = walkSpeed + Time.timeSinceLevelLoad / 100;
-
         float scroll = Input.GetAxis("Mouse ScrollWheel");
 
+        /*
         if (Input.GetKey(KeyCode.E))
         {
             moveSpeed *= Mathf.Abs(1 + scroll * speedSensitivity);
@@ -130,32 +133,33 @@ public class ShaderHandler : MonoBehaviour
             mainCamera.fieldOfView -= scroll * zoomSensitivity;
             mainCamera.fieldOfView = Mathf.Clamp(mainCamera.fieldOfView, 0, 180);
         }
+        */
 
-        //position += transform.forward * moveSpeed;
-        float currentMoveSpeed = Input.GetKey(KeyCode.LeftShift) ? moveSpeed * speedFactorOnShift : moveSpeed;
+        float currentMoveSpeed = moveSpeed; //Input.GetKey(KeyCode.LeftShift) ? moveSpeed * speedFactorOnShift : moveSpeed;
         if (functionNum >= 0 && functionNum <= 2)
         {
             currentMoveSpeed *= (transform.position.magnitude - 0.5f) / 10f;
         }
         else if (functionNum == 3)
         {
-            currentMoveSpeed *= 10 + (transform.position.magnitude - 9.0f) / 1000f;
+            currentMoveSpeed *= 2 + (transform.position.magnitude - 9.0f) / 100f;
         }
         else if (functionNum == 4)
         {
-            currentMoveSpeed *= 1 + (transform.position.magnitude - 0.5f) / 1000f;
+            currentMoveSpeed *= 1f + (transform.position.magnitude - 0.5f) / 1000f;
         }
         else if (functionNum == 6)
         {
-            currentMoveSpeed *= 10;
+            currentMoveSpeed *= 3;
         }
-        transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
-
-        if (moveTime)
+        else if (functionNum == 7)
         {
-            lastTime += Time.deltaTime * timeSpeed;
+            currentMoveSpeed *= 0.1f;
         }
+        Vector3 positionChange = (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
+        transform.position += positionChange * (Time.deltaTime * 60);
 
+        /*
         if (Input.GetKeyDown(KeyCode.End))
         {
             moveTime = true;
@@ -183,7 +187,7 @@ public class ShaderHandler : MonoBehaviour
             timeSpeed = timeSpeed * -1;
         }
 
-        if (Input.GetKeyDown(KeyCode.R))
+        if (Input.GetKeyDown(KeyCode.M))
         {
             mainCamera.fieldOfView = 60;
             moveSpeed = baseMoveSpeed;
@@ -193,6 +197,7 @@ public class ShaderHandler : MonoBehaviour
         {
             lastTime = 0;
         }
+        */
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
@@ -204,10 +209,10 @@ public class ShaderHandler : MonoBehaviour
 
         int currentIterations = iterations;
 
-        //if (functionNum == 5)
-        //{
-        //    iterations = 15;
-        //}
+        if (functionNum == 7)
+        {
+            iterations = 1000;
+        }
 
         Vector3 position = transform.position;
         rayMarchingShader.SetTexture(kernelIndex, "SourceTexture", source);
@@ -226,7 +231,7 @@ public class ShaderHandler : MonoBehaviour
 
         float[] data = new float[1];
         loseBuffer.GetData(data);
-        if (data[0] == 1 && (functionNum >= 3))
+        if (data[0] == 1 && functionNum >= 1 && functionNum <= 6)
         {
             GameHandler.Instance.ReloadLevel();
             //SceneManager.LoadScene(0);

@@ -13,19 +13,25 @@ public class GameHandler : MonoBehaviour
     [SerializeField] float startHoldLength;
     [SerializeField] float startEndLength;
 
-    [SerializeField] float infoFadeInOut;
-    [SerializeField] float infoHold;
+    [SerializeField] float titleFadeInOut;
+    [SerializeField] float titleHold;
+    [SerializeField] float fullResetRepeatTime;
 
     [SerializeField] Image overlayImage;
     [SerializeField] Image speakerImage;
-    [SerializeField] TextMeshProUGUI infoText;
+    [SerializeField] TextMeshProUGUI[] hotkeyTexts;
+    [SerializeField] TextMeshProUGUI titleText;
+    [SerializeField] AudioSource highNoiseAudioSource;
+    [SerializeField] AudioSource exitAudioSource;
 
     [SerializeField] int startLevel;
     [SerializeField] Level[] levels;
 
-
+    private float startTime;
     private int currentLevel = 0;
     private Collider target;
+    private bool fullReset = false;
+    private IEnumerator titleFadeCoroutine;
 
     public static GameHandler Instance;
 
@@ -59,10 +65,15 @@ public class GameHandler : MonoBehaviour
         Level level = levels[num];
         target = level.target;
         target.gameObject.SetActive(false);
+        if (num == 8)
+        {
+            SetAlpha(overlayImage, 0f);
+        }
     }
 
-    void LoadLevel(int num, bool title = true)
+    void LoadLevel(int num, bool showTitle = true)
     {
+        int pastLevel = currentLevel;
         currentLevel = num;
         Level level = levels[num];
         target = level.target;
@@ -72,14 +83,27 @@ public class GameHandler : MonoBehaviour
         ShaderHandler.Instance.SetLevelFunction(num);
         ShaderHandler.Instance.SetTime(level.time);
         ShaderHandler.Instance.SetTimeSpeed(level.timeSpeed);
-        if (title)
+        if (pastLevel != currentLevel)
         {
-            infoText.color = level.titleColor;
-            StartCoroutine(TitleFade(level.title));
+            CleanupLevel(pastLevel);
+            if (titleFadeCoroutine != null)
+            {
+                StopTitleFade();
+            }
         }
-        if (num != 0)
+        if (showTitle)
         {
-            CleanupLevel(num - 1);
+            titleText.color = level.titleColor;
+            titleFadeCoroutine = TitleFade(level.title);
+            StartCoroutine(titleFadeCoroutine);
+        }
+        if (num == 0)
+        {
+            startTime = Time.time;
+        }
+        if (num == 8)
+        {
+            StartCoroutine(ExitSequence());
         }
     }
 
@@ -91,7 +115,6 @@ public class GameHandler : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        Debug.Log("start");
         foreach (Level level in levels)
         {
             level.target.gameObject.SetActive(false);
@@ -112,11 +135,25 @@ public class GameHandler : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        /*if (Random.Range(0f, 1f) < 0.001) {
-            LoadLevel(currentLevel+1);
-        }*/
-        //LoadLevel(1);
-        if (Input.GetKey(KeyCode.M)) { LoadLevel(currentLevel); }
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            if (fullReset || currentLevel == 8)
+            {
+                LoadLevel(0, false);
+            }
+            else
+            {
+                ReloadLevel();
+                StartCoroutine(SetFullResetRepeat());
+            }
+        }
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            Application.Quit();
+        }
+        if (currentLevel == 7) { return; }
+        float dist = (Camera.main.transform.position - levels[currentLevel].target.transform.position).magnitude;
+        highNoiseAudioSource.volume = Mathf.Clamp(1.0f / Mathf.Pow(dist, 2.0f), 0.0f, 0.1f);
     }
 
     void SetAlpha(Image image, float alpha)
@@ -126,9 +163,23 @@ public class GameHandler : MonoBehaviour
         image.color = c;
     }
 
+    void SetHotkeyTextsAlpha(float alpha)
+    {
+        foreach (TextMeshProUGUI text in hotkeyTexts)
+        {
+            text.alpha = alpha;
+        }
+    }
+
+    void StopTitleFade()
+    {
+        StopCoroutine(titleFadeCoroutine);
+        titleText.alpha = 0f;
+    }
+
     IEnumerator StartFade()
     {
-        infoText.alpha = 0f;
+        titleText.alpha = 0f;
         yield return new WaitForSeconds(startDelayLength);
         float start = Time.time;
         float elapsed = 0f;
@@ -137,6 +188,7 @@ public class GameHandler : MonoBehaviour
             elapsed = Time.time - start;
             float alpha = elapsed / startInLength;
             SetAlpha(speakerImage, alpha);
+            SetHotkeyTextsAlpha(alpha);
             yield return null;
         }
         yield return new WaitForSeconds(startHoldLength);
@@ -149,6 +201,7 @@ public class GameHandler : MonoBehaviour
             float alpha = 1f - elapsed / startEndLength;
             SetAlpha(overlayImage, alpha);
             SetAlpha(speakerImage, alpha);
+            SetHotkeyTextsAlpha(alpha);
             yield return null;
         }
     }
@@ -156,23 +209,49 @@ public class GameHandler : MonoBehaviour
     IEnumerator TitleFade(string title)
     {
         yield return new WaitForSeconds(1f);
-        infoText.text = title;
+        titleText.text = title;
         float start = Time.time;
         float elapsed = 0f;
-        while (elapsed <= infoFadeInOut)
+        while (elapsed <= titleFadeInOut)
         {
             elapsed = Time.time - start;
-            infoText.alpha = elapsed / infoFadeInOut;
+            titleText.alpha = elapsed / titleFadeInOut;
             yield return null;
         }
-        yield return new WaitForSeconds(infoHold);
+        yield return new WaitForSeconds(titleHold);
         start = Time.time;
         elapsed = 0f;
-        while (elapsed <= infoFadeInOut)
+        while (elapsed <= titleFadeInOut)
         {
             elapsed = Time.time - start;
-            infoText.alpha = 1f - elapsed / infoFadeInOut;
+            titleText.alpha = 1f - elapsed / titleFadeInOut;
             yield return null;
         }
+    }
+
+    IEnumerator ExitSequence()
+    {
+        // Speedrun ends upon loading final level
+        float finishTime = Time.time - startTime;
+        yield return new WaitForSeconds(0.1f);
+        exitAudioSource.Play();
+        yield return new WaitForSeconds(exitAudioSource.clip.length);
+        titleText.text = finishTime.ToString("F3");
+        SetAlpha(overlayImage, 1f);
+        titleText.color = Color.white;
+        titleText.alpha = 1f;
+        yield return new WaitForSeconds(10f);
+        if (currentLevel == 8)
+        {
+            Application.Quit();
+        }
+
+    }
+
+    IEnumerator SetFullResetRepeat()
+    {
+        fullReset = true;
+        yield return new WaitForSeconds(fullResetRepeatTime);
+        fullReset = false;
     }
 }
