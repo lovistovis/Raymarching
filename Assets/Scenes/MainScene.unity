@@ -229,11 +229,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rayMarchingShader: {fileID: 7200000, guid: 88edec368fd49444b951f9ae8bec5533, type: 3}
+  startPos: {x: 2, y: 1, z: 0.5}
   baseMoveSpeed: 0.1
-  rayMarchingIterations: 3423
+  baseRayMarchingIterations: 3423
   mouseSensitivity: 1.13
-  zoomSensitivity: 5
+  zoomSensitivity: 3
   speedSensitivity: 1
+  timeSensitivity: 0
   speedFactorOnShift: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
