@@ -1,11 +1,14 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
+using System.IO;
 
 public class ShaderHandler : MonoBehaviour
 {
     [SerializeField] private ComputeShader rayMarchingShader;
     [SerializeField] private Vector3 startPos = new Vector3(2.0f, 1.0f, 0.5f);
+    [SerializeField] private int photoResolutionX = 4096;
+    [SerializeField] private int photoResolutionY = 4096;
     [SerializeField] private float baseMoveSpeed;
     [FormerlySerializedAs("rayMarchingIterations")][SerializeField][Range(1, 10000)] private int baseRayMarchingIterations;
     [SerializeField][Range(0, 2)] private float mouseSensitivity;
@@ -15,6 +18,7 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField][Range(1, 2)] private float speedFactorOnShift;
 
     private RenderTexture renderTexture;
+    private RenderTexture photoRenderTexture;
     private Quaternion cameraRotation = Quaternion.identity;
     private Vector3 cameraDirection = new Vector3(0, 0, 0);
     private Camera mainCamera;
@@ -23,6 +27,7 @@ public class ShaderHandler : MonoBehaviour
     private float cameraRotationY = 0;
     private float timeSpeed = 0.1f;
     private bool moveTime = true;
+    private bool saveNextFrame = false;
     private float moveSpeed;
     private int iterations;
     private float randomRange = 1000f;
@@ -31,6 +36,15 @@ public class ShaderHandler : MonoBehaviour
 
     public static ShaderHandler Instance;
 
+    Texture2D toTexture2D(RenderTexture rTex)
+    {
+        Texture2D tex = new Texture2D(rTex.width, rTex.height, TextureFormat.RGB24, false);
+        // ReadPixels looks at the active RenderTexture.
+        RenderTexture.active = rTex;
+        tex.ReadPixels(new Rect(0, 0, rTex.width, rTex.height), 0, 0);
+        tex.Apply();
+        return tex;
+    }
 
     public void SetLevelFunction(int num)
     {
@@ -54,6 +68,11 @@ public class ShaderHandler : MonoBehaviour
         {
             renderTexture = new RenderTexture(Screen.width, Screen.height, 24);
             renderTexture.enableRandomWrite = true;
+        }
+        if (photoRenderTexture == null)
+        {
+            photoRenderTexture = new RenderTexture(photoResolutionX, photoResolutionY, 24);
+            photoRenderTexture.enableRandomWrite = true;
         }
     }
 
@@ -141,6 +160,11 @@ public class ShaderHandler : MonoBehaviour
             timeSpeed = 1f;
         }
 
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            mainCamera.fieldOfView = 60;
+        }
+
         if (Input.GetKeyDown(KeyCode.LeftControl))
         {
             moveTime = !moveTime;
@@ -151,18 +175,17 @@ public class ShaderHandler : MonoBehaviour
             timeSpeed = timeSpeed * -1;
         }
 
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            mainCamera.fieldOfView = 60;
-            moveSpeed = baseMoveSpeed;
-        }
-
         if (Input.GetKeyDown(KeyCode.T))
         {
             lastTime = 0;
         }
 
         if (Input.GetKey(KeyCode.M)) { transform.position = startPos; }
+
+        if (Input.GetKey(KeyCode.O))
+        {
+            saveNextFrame = true;
+        }
 
         //Debug.Log((Time.timeSinceLevelLoad * 100).ToString() + ", " + iterations.ToString());
     }
@@ -173,6 +196,9 @@ public class ShaderHandler : MonoBehaviour
 
         ComputeBuffer loseBuffer = new ComputeBuffer(1, sizeof(float));
         loseBuffer.SetData(new float[] { 0 });
+
+        renderTexture = saveNextFrame ? photoRenderTexture : renderTexture;
+        Debug.Log(renderTexture.width + ";" + renderTexture.height);
 
         Vector3 position = transform.position / 0.001f;
         rayMarchingShader.SetTexture(kernelIndex, "SourceTexture", source);
@@ -193,12 +219,31 @@ public class ShaderHandler : MonoBehaviour
         loseBuffer.GetData(data);
         if (data[0] == 1)
         {
-            Debug.Log("Lost");
-            SceneManager.LoadScene(0);
+            //Debug.Log("Lost");
+            //SceneManager.LoadScene(0);
         }
         loseBuffer.Dispose();
 
-        // Copy contents from new render texture to camera destination
-        Graphics.Blit(renderTexture, destination);
+        if (saveNextFrame)
+        {
+            saveNextFrame = false;
+            Texture2D tex = toTexture2D(photoRenderTexture);
+            byte[] bytes = tex.EncodeToPNG();
+            var dirPath = Application.dataPath + "/../SaveImages/";
+            if (!Directory.Exists(dirPath))
+            {
+                Directory.CreateDirectory(dirPath);
+            }
+            string path = dirPath + "T" + lastTime + "_P" + position.x + ";" + position.y + ";" + position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + ".png";
+            File.WriteAllBytes(path, bytes);
+
+            // Write prevous frame to screen
+            Graphics.Blit(renderTexture, destination);
+        }
+        else
+        {
+            // Copy contents from new render texture to camera destination
+            Graphics.Blit(renderTexture, destination);
+        }
     }
 }
