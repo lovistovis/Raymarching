@@ -13,6 +13,7 @@ int ColorNum;
 float3 CameraPosition;
 float Time;
 int RayMarchingIterations;
+bool AlwaysShowFinalColor;
 float4x4 CameraToWorld;
 float4x4 CameraInverseProjection;
 
@@ -152,6 +153,10 @@ float SignedDistanceFromScene(float3 p, float time)
             return SignedDistanceSebastian(p, time); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
         case 1:
             return SignedDistanceSebastianNice1(p, time);
+        case 2:
+            return SignedDistanceNoise(p, time);
+        case 3:
+            return smoothMin(SignedDistanceNoise(p, time * 100.0), SignedDistanceSebastianNice1(p, time), 0.5);
         default:
             return 0.0;
     }
@@ -159,7 +164,10 @@ float SignedDistanceFromScene(float3 p, float time)
 
 float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, float time)
 {
-    if (notFound) {
+    float3 lightPos;
+    float dotSN;
+    float3 color;
+    if (!AlwaysShowFinalColor && notFound) {
         switch (ColorNum) {
             case 1:
                 return float3(1.0, 1.0, 1.0);
@@ -170,15 +178,36 @@ float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, f
     switch (ColorNum)
     {
         case 0:
-            // float3 lightPos = CameraPosition; // + float3(snoise(rayPosition.xyz) * 100000, snoise(rayPosition.yzx) * 100000, snoise(rayPosition.zxy) * 100000); //float3(2.0, 1.0, 1.0);
-            // float dotSN = 1.0; //lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), /*sin(Time / 10)*/ 1.0);
-            return float4(0.5+0.5*normal, 1.0); // * dotSN; //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
-            // color = convertHslToRgb(convertRgbToHsl(color) + float3(sin((Time / 3)+1)/2, 0, 0));
+            return float3(0.5 + 0.5 * normal);
         case 1:
             float grayscale = depth / 200.0;
-            return float4(grayscale, grayscale, grayscale, 1.0);
+            return float3(grayscale, grayscale, grayscale);
         case 2:
             return normal;
+        case 3:
+            lightPos = CameraPosition;
+            dotSN = lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), 1.0);
+            return float3(0.5+0.5*normal) * dotSN;
+        case 4:
+            lightPos = CameraPosition;
+            dotSN = lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), 1.0);
+            color = float3(0.5 + 0.5 * normal) * dotSN;
+            return convertHslToRgb(convertRgbToHsl(color) + float3(sin((time / 3) + 1) / 2, 0, 0));
+        case 5:
+            return float3(sin(rayPosition.x), tan(rayPosition.y), cos(rayPosition.z));
+        case 6:
+            return float3(sin(rayPosition.x), 0.0, cos(rayPosition.z));
+        case 7:
+            return float3(sin(tan(rayPosition.x)), cos(rayPosition.y), cos(rayPosition.z));
+        case 8:
+            return float3(sin(rayPosition.x) * normal.x, cos(rayPosition.y) * normal.y, cos(rayPosition.z) * normal.z);
+        case 9:
+            return float3(sin(rayPosition.x) * cos(normal.x), cos(rayPosition.y) * tan(normal.y), cos(rayPosition.z) * sin(normal.z));
+        case 10:
+            lightPos = CameraPosition;
+            dotSN = lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition * rayPosition)), sin(time));
+            color = float3(0.5 + 0.5 * normal) * dotSN;
+            return convertHslToRgb(convertRgbToHsl(color) + float3(sin((time / 3) + 1) / 2, 0, 0));
         default:
             return normal;
     }

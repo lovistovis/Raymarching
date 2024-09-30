@@ -32,6 +32,7 @@ public class ShaderHandler : MonoBehaviour
     private float timeSpeed = 0.1f;
     private bool moveTime = true;
     private bool saveNextFrame = false;
+    private bool alwaysShowFinalColor = true;
     private float moveSpeed;
     private int iterations;
     private float randomRange = 1000f;
@@ -167,6 +168,11 @@ public class ShaderHandler : MonoBehaviour
             moveTime = !moveTime;
         }
 
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            alwaysShowFinalColor = !alwaysShowFinalColor;
+        }
+
         if (Input.GetKeyDown(KeyCode.Q))
         {
             timeSpeed = timeSpeed * -1;
@@ -211,6 +217,7 @@ public class ShaderHandler : MonoBehaviour
         rayMarchingShader.SetBuffer(kernelIndex, "LoseBuffer", loseBuffer);
         rayMarchingShader.SetInts("Resolution", renderTexture.width, renderTexture.height);
         rayMarchingShader.SetInt("RayMarchingIterations", iterations);
+        rayMarchingShader.SetBool("AlwaysShowFinalColor", alwaysShowFinalColor);
         rayMarchingShader.SetInt("FunctionNum", functionNum);
         rayMarchingShader.SetInt("ColorNum", colorNum);
         rayMarchingShader.SetFloats("CameraPosition", position.x, position.y, position.z);
