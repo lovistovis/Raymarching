@@ -8,6 +8,8 @@ static const float PI = 3.14159265;
 RWStructuredBuffer<float> LoseBuffer;
 RWTexture2D<float4> RenderTexture;
 int2 Resolution;
+int FunctionNum;
+int ColorNum;
 float3 CameraPosition;
 float Time;
 int RayMarchingIterations;
@@ -144,7 +146,42 @@ float SignedDistanceTest1(float3 p, float time)
 
 float SignedDistanceFromScene(float3 p, float time)
 {
-    return SignedDistanceSebastian(p, time); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+    switch (FunctionNum)
+    {
+        case 0:
+            return SignedDistanceSebastian(p, time); //min(p.z, min(p.x, min(p.y, SignedDistanceFromSphere(p, float3(0.3, 0.0, 0.4), 0.3) ) ) );
+        case 1:
+            return SignedDistanceSebastianNice1(p, time);
+        default:
+            return 0.0;
+    }
+}
+
+float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, float time)
+{
+    if (notFound) {
+        switch (ColorNum) {
+            case 1:
+                return float3(1.0, 1.0, 1.0);
+            default:
+                return float3(0.0, 0.5, 0.0);
+        }
+    }
+    switch (ColorNum)
+    {
+        case 0:
+            // float3 lightPos = CameraPosition; // + float3(snoise(rayPosition.xyz) * 100000, snoise(rayPosition.yzx) * 100000, snoise(rayPosition.zxy) * 100000); //float3(2.0, 1.0, 1.0);
+            // float dotSN = 1.0; //lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), /*sin(Time / 10)*/ 1.0);
+            return float4(0.5+0.5*normal, 1.0); // * dotSN; //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
+            // color = convertHslToRgb(convertRgbToHsl(color) + float3(sin((Time / 3)+1)/2, 0, 0));
+        case 1:
+            float grayscale = depth / 200.0;
+            return float4(grayscale, grayscale, grayscale, 1.0);
+        case 2:
+            return normal;
+        default:
+            return normal;
+    }
 }
 
 float3 estimateNormal(float3 p, float time)
@@ -175,7 +212,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     {
         if (SignedDistanceFromScene(CameraPosition, Time) < 0)
         {
-            //LoseBuffer[0] = 1;
+            LoseBuffer[0] = 1;
         }
     }
 
@@ -185,7 +222,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     bool notFound = false;
     float3 rayPosition = CameraPosition;
-    for (int i = 0; i < RayMarchingIterations; i++)
+    for (int i = 0; i <= RayMarchingIterations; i++)
     {
         float distance = SignedDistanceFromScene(rayPosition, Time);
 
@@ -194,20 +231,13 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         // Move ray to radius of circle
         rayPosition += rayDirection * distance;
 
-        if (i > RayMarchingIterations || length(rayPosition - CameraPosition) > 100000) { notFound = true; }
+        if (i == RayMarchingIterations || length(rayPosition - CameraPosition) > 100000) { notFound = true; break; }
     }
 
-    float grayscale = abs(length(rayPosition - CameraPosition)) / 200;
-
+    float depth = abs(length(rayPosition - CameraPosition));
     float3 normal = estimateNormal(rayPosition, Time);
-    float3 lightPos = CameraPosition; // + float3(snoise(rayPosition.xyz) * 100000, snoise(rayPosition.yzx) * 100000, snoise(rayPosition.zxy) * 100000); //float3(2.0, 1.0, 1.0);
-    
-    float dotSN = 1.0; //lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), /*sin(Time / 10)*/ 1.0);
 
-    float3 color = lerp(float4(grayscale, grayscale, grayscale, 1.0), float4(0.5+0.5*normal, 1.0) * dotSN, 1.0/*abs(sin(PI/2+Time / 10))*/); //float4(*Time/10), 0.0, 0.0, 1.0); //float4(rayDirection.xyz, 1);
-    //color = convertHslToRgb(convertRgbToHsl(color) + float3(sin((Time / 3)+1)/2, 0, 0));
-
-    if (notFound) { color = float3(0.0, 0.5, 0.0); }
+    float3 color = RayColor(rayPosition, notFound, normal, depth, Time);
 
     RenderTexture[id.xy] = float4(color.xyz, 1.0);
 }
