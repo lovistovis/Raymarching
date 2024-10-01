@@ -229,7 +229,8 @@ MonoBehaviour:
   photoResolutionY: 4096
   startFunctionNum: 0
   startColorNum: 0
-  baseMoveSpeed: 0.1
+  baseMoveSpeed: 0.001
+  baseTimeSpeed: 0.001
   baseRayMarchingIterations: 3423
   mouseSensitivity: 1.13
   rollSensitivity: 0.322

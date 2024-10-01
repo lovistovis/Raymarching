@@ -12,6 +12,7 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField] private int startFunctionNum;
     [SerializeField] private int startColorNum;
     [SerializeField] private float baseMoveSpeed;
+    [SerializeField] private float baseTimeSpeed;
     [SerializeField][Range(1, 10000)] private int baseRayMarchingIterations;
     [SerializeField][Range(0, 2)] private float mouseSensitivity;
     [SerializeField][Range(0, 2)] private float rollSensitivity;
@@ -29,12 +30,13 @@ public class ShaderHandler : MonoBehaviour
     private float cameraRotationX = 0;
     private float cameraRotationY = 0;
     private float cameraRotationZ = 0;
-    private float timeSpeed = 0.1f;
     private bool moveTime = true;
     private bool saveNextFrame = false;
     private bool alwaysShowFinalColor = true;
     private float moveSpeed;
+    private float timeSpeed;
     private int iterations;
+    private string frameName;
     private float randomRange = 1000f;
     private float lastTime = 0;
     private int functionNum;
@@ -78,6 +80,7 @@ public class ShaderHandler : MonoBehaviour
 
         transform.position = startPos;
         moveSpeed = baseMoveSpeed;
+        timeSpeed = baseTimeSpeed;
         iterations = baseRayMarchingIterations;
         functionNum = startFunctionNum;
         colorNum = startColorNum;
@@ -105,7 +108,8 @@ public class ShaderHandler : MonoBehaviour
 
         transform.localEulerAngles = new Vector3(cameraRotationY, cameraRotationX, cameraRotationZ);
 
-        Debug.Log(functionNum + ", " + colorNum);
+        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY;
+        Debug.Log(frameName);
 
         // Movement
         //float moveSpeed = walkSpeed + Time.timeSinceLevelLoad / 100;
@@ -133,7 +137,7 @@ public class ShaderHandler : MonoBehaviour
 
         //position += transform.forward * moveSpeed;
         float currentMoveSpeed = Input.GetKey(KeyCode.LeftShift) ? moveSpeed * speedFactorOnShift : moveSpeed;
-        transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
+        transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed / 0.001f;
 
         if (moveTime) { lastTime += Time.deltaTime * timeSpeed; }
 
@@ -150,7 +154,7 @@ public class ShaderHandler : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.R))
         {
             moveSpeed = baseMoveSpeed;
-            timeSpeed = 1f;
+            timeSpeed = baseTimeSpeed;
         }
 
         if (Input.GetKeyDown(KeyCode.H))
@@ -211,7 +215,6 @@ public class ShaderHandler : MonoBehaviour
 
         renderTexture = saveNextFrame ? photoRenderTexture : renderTexture;
 
-        Vector3 position = transform.position / 0.001f;
         rayMarchingShader.SetTexture(kernelIndex, "SourceTexture", source);
         rayMarchingShader.SetTexture(kernelIndex, "RenderTexture", renderTexture);
         rayMarchingShader.SetBuffer(kernelIndex, "LoseBuffer", loseBuffer);
@@ -220,7 +223,7 @@ public class ShaderHandler : MonoBehaviour
         rayMarchingShader.SetBool("AlwaysShowFinalColor", alwaysShowFinalColor);
         rayMarchingShader.SetInt("FunctionNum", functionNum);
         rayMarchingShader.SetInt("ColorNum", colorNum);
-        rayMarchingShader.SetFloats("CameraPosition", position.x, position.y, position.z);
+        rayMarchingShader.SetFloats("CameraPosition", transform.position.x, transform.position.y, transform.position.z);
         rayMarchingShader.SetFloat("Time", lastTime);
         rayMarchingShader.SetFloat("Seed", Random.Range(-randomRange, randomRange));
         rayMarchingShader.SetMatrix("CameraToWorld", mainCamera.cameraToWorldMatrix);
@@ -255,7 +258,7 @@ public class ShaderHandler : MonoBehaviour
             {
                 Directory.CreateDirectory(dirPath);
             }
-            string path = dirPath + "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + position.x + ";" + position.y + ";" + position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + ".png";
+            string path = dirPath + frameName + ".png";
             File.WriteAllBytes(path, bytes);
 
             // Write prevous frame to screen

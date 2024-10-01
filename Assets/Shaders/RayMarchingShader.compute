@@ -124,6 +124,13 @@ float SignedDistanceSebastian(float3 p, float time)
     return lerp(dstA, dstB, 0.5);
 }
 
+float SignedDistanceSebastian2(float3 p, float time)
+{
+    float dstA = dot(sin(p * time / p.z * p.x), 1);
+    float dstB = cross(pow(abs(p.y%1000), time / 10), 1);
+    return lerp(dstA, dstB, 0.5);
+}
+
 float SignedDistanceNoise(float3 p, float time)
 {
     return snoise(p * 0.16 * sin(time / 100)) + 1 - abs(sin(time / 10)); // sin(time / 10);
@@ -145,6 +152,110 @@ float SignedDistanceTest1(float3 p, float time)
     return pow(p.x*p.z/p.y, time);
 }
 
+float SignedDistanceLissajous(float3 p, float time)
+{
+    float a = 1.0 + 0.5 * sin(time);
+    float b = 1.0 + 0.5 * cos(time);
+    float x = a * sin(3.0 * p.y + time);
+    float y = b * sin(2.0 * p.x - time);
+    return length(float2(p.x - x, p.y - y)) - 0.1;
+}
+
+float SignedDistanceFractalTwist(float3 p, float time)
+{
+    float twist = sin(time + length(p.xy)) * 0.5;
+    p.xy = mul(p.xy, float2x2(cos(twist), sin(twist), -sin(twist), cos(twist)));
+    return length(p) - 1.0 + sin(dot(p, p * time * 0.1)) * 0.3;
+}
+
+float SignedDistanceMorphingPyramid(float3 p, float time)
+{
+    float height = 1.0 + 0.5 * sin(time);
+    float base = 1.0 + 0.2 * cos(time);
+    float d = max(p.y - height, max(abs(p.x) + abs(p.z) - base, 0.0));
+    return d;
+}
+
+float SignedDistanceSineWarpChaos(float3 p, float time)
+{
+    float dstA = sin(dot(p, p) * time * 0.1);
+    float dstB = cos(length(p) + time * 2.0);
+    return abs(dstA * dstB * p.x + p.y) / (sin(time * 0.5) + 0.1);
+}
+
+float SignedDistanceHyperbolicSpiral(float3 p, float time)
+{
+    float spiral = sin(p.x + time) * cos(p.y - time);
+    float dst = length(p) - (spiral * 0.5 + 1.0);
+    return abs(dst * cos(time + p.x * p.y)) + sin(dot(p.xy, p.xy) + time);
+}
+
+float SignedDistanceNoiseFusedSphere(float3 p, float time)
+{
+    float r = length(p) + sin(time + dot(p, p) * 0.1);
+    float noise = frac(sin(dot(p.xy, float2(12.9898, 78.233))) * 43758.5453);
+    return r - (0.5 + noise * 0.5);
+}
+
+float SignedDistanceRandomFieldWarp(float3 p, float time)
+{
+    float warp = frac(sin(dot(p.xy, float2(12.9898, 78.233))) * 43758.5453);
+    float dst = length(p) + warp * time;
+    return dst - (sin(time + dot(p, p)) * 0.5);
+}
+
+float SignedDistanceComplexCrossChaos(float3 p, float time)
+{
+    float dstA = dot(p, sin(p * time * 0.1));
+    float dstB = cross(float3(abs(p.y), abs(p.z), abs(p.x)), float3(time, p.x, p.y)).x;
+    return sin(dstA * dstB) * 0.5;
+}
+
+float SignedDistanceCoolEffect(float3 p, float time)
+{
+    // Warp space with sin and time to get chaotic movement
+    float3 q = p * sin(time * 0.5) + cos(p * time * 0.2);
+    
+    // Layer 1: Use a sine and time warp to create a wave-like distortion
+    float dstA = dot(sin(q * time / q.z * q.x), 1.0);
+
+    // Layer 2: Use a cross product with fract and mod to create wild patterns
+    float3 r = float3(
+        pow(abs(frac(p.y * sin(time))), time * 0.1), 
+        fmod(p.x * p.z * cos(time * 0.3), 50), 
+        abs(p.z * sin(time))
+    );
+    float dstB = dot(cross(r, q), 1.0);
+
+    // Layer 3: Combine with a smoothstep for blending between layers
+    float blendFactor = smoothstep(0.1, 0.9, sin(time * 0.5));
+    
+    // Final distance: blending dstA and dstB with some dynamic chaos
+    return lerp(dstA, dstB, blendFactor);
+}
+
+float SignedDistnaceFractal(float3 p, float time)
+{
+    // Initialize parameters
+    float scale = 2.0; // Scaling factor
+    float offset = 1.0; // Offset to add between iterations
+    float dist = 0.0; // Final distance value
+    int iterations = 5; // Number of fractal iterations
+
+    // Fractal iteration loop
+    for (int i = 0; i < iterations; i++)
+    {
+        // Warp the space with time and sin for chaotic fractal behavior
+        p = abs(p) - offset; // Mirror the space around the origin
+        p = p * scale + sin(time + p * 0.5); // Scale and warp the space with sin
+
+        // Distance calculation, this could be for a sphere-like shape
+        dist += length(p) / pow(scale, float(i)); // Accumulate the distance
+    }
+
+    return dist; // Return the fractal distance
+}
+
 float SignedDistanceFromScene(float3 p, float time)
 {
     switch (FunctionNum)
@@ -157,6 +268,10 @@ float SignedDistanceFromScene(float3 p, float time)
             return SignedDistanceNoise(p, time);
         case 3:
             return smoothMin(SignedDistanceNoise(p, time * 100.0), SignedDistanceSebastianNice1(p, time), 0.5);
+        case 4:
+            return SignedDistanceCoolEffect(p, time);
+        case 5:
+            return SignedDistnaceFractal(p, time);
         default:
             return 0.0;
     }
@@ -180,7 +295,7 @@ float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, f
         case 0:
             return float3(0.5 + 0.5 * normal);
         case 1:
-            float grayscale = depth / 200.0;
+            float grayscale = depth / 5000.0;
             return float3(grayscale, grayscale, grayscale);
         case 2:
             return normal;
