@@ -61,9 +61,9 @@ float SignedDistanceFromMandelBulbOld(float3 p) {
 	float r = 0.0;//d
     float Power = 8.0;
 
-	for (int i = 0; i < 1000; i++) {
+	for (int i = 0; i < 100; i++) {
 		r = length(z);
-		if (r>0.01) break;
+		if (r > 4) break;
 		
 		// convert to polar coordinates
 		float theta = acos(z.z/r);
@@ -82,32 +82,31 @@ float SignedDistanceFromMandelBulbOld(float3 p) {
 	return 0.5*log(r)*r/dr;
 }
 
-float SignedDistanceFromMandelBulb(float3 p, float time)
-{
-    float3 z = p;
-    float dr = 1.0;
-    float r;
-    float power = time;
+float SignedDistanceFromMandelBulb(float3 p, float time) {
+	float3 z = p;
+	float dr = 1.0;
+	float r = 0.0;//d
+    float Power = time;
 
-    for (int i = 0; i < 15; i++)
-    {
-        r = length(z);
-        if (r < 0.1) { break; }
-
-        float theta = acos(z.z / r) * power;
-        float phi = atan2(z.y, z.x) * power;
-        float zr = pow(r, power);
-        dr = pow(r, power-1) * power * dr + 1;
-
-        z = zr * float3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
-        z += p;
-    }
-    return 0.5 * log(r) * r / dr;
-}
-
-float SignedDistanceFromSphere(float3 p, float3 spherePosition, float radius)
-{
-    return length(p - spherePosition) - radius;
+	for (int i = 0; i < 30; i++) {
+		r = length(z);
+		if (r > 4) { break; }
+		
+		// convert to polar coordinates
+		float theta = acos(z.z / r);
+		float phi = atan(z.y / z.x);
+		dr = pow(r, Power - 1.0) * Power * dr + 1.0;
+		
+		// scale and rotate the point
+		float zr = pow(r, Power);
+		theta = theta * Power;
+		phi = phi * Power;
+		
+		// convert back to cartesian coordinates
+		z = zr * float3(sin(theta) * cos(phi), sin(phi) * sin(theta), cos(theta));
+		z += p;
+	}
+	return 0.5*log(r)*r/dr;
 }
 
 float SignedDistanceSebastianNice1(float3 p, float time)
@@ -256,6 +255,66 @@ float SignedDistnaceFractal(float3 p, float time)
     return dist; // Return the fractal distance
 }
 
+float SignedDistanceFromSphere(float3 p, float3 spherePosition, float radius)
+{
+    return length(p - spherePosition) - radius;
+}
+
+float SignedDistanceInfiniteSphereLattice(float3 p, float spacing, float offset, float radius) {
+    p = p - offset;
+    float3 nearestCenter = round(p / spacing) * spacing;
+    float3 localP = p - nearestCenter;
+    return SignedDistanceFromSphere(localP, float3(0.0, 0.0, 0.0), radius);
+}
+
+float SignedDistanceMandelbulbAI(float3 p, float time)
+{
+    // Initialize constants for the Mandelbulb fractal
+    const int iterations = 8;      // Number of iterations for fractal recursion
+    const float power = 8.0;       // Power used in the Mandelbulb formula
+    const float bailout = 8.0;     // Escape radius
+    const float scale = 1.2;       // Scale factor to control size
+
+    // Initialize variables
+    float3 z = p;                  // Position in 3D space
+    float dr = 1.0;                // Derivative of the distance function
+    float r = 0.0;                 // Magnitude of the point
+    
+    // Mandelbulb iteration loop
+    for (int i = 0; i < iterations; i++)
+    {
+        // Calculate the distance from the origin
+        r = length(z);
+        if (r > bailout) break;    // If the point escapes, break the loop
+        
+        // Convert the point z to spherical coordinates
+        float theta = acos(z.z / r);            // Polar angle
+        float phi = atan2(z.y, z.x);            // Azimuthal angle
+        
+        // Mandelbulb power transformations in spherical coordinates
+        float zr = pow(r, power - 1.0);         // Magnitude raised to (power - 1)
+        dr = dr * power * zr + 1.0;             // Derivative accumulation
+        
+        // Rotate and stretch the point using Mandelbulb formula
+        float newR = pow(r, power);             // New radius
+        theta = theta * power;                  // Polar angle scaled by power
+        phi = phi * power;                      // Azimuthal angle scaled by power
+        
+        // Convert back to Cartesian coordinates
+        z = newR * float3(
+            sin(theta) * cos(phi),              // x coordinate
+            sin(phi) * sin(theta),              // y coordinate
+            cos(theta)                          // z coordinate
+        ) + p;                                  // Add original point
+        
+        // Apply time-dependent transformation for dynamic effect
+        z += sin(time * 0.1 + z * scale);       // Time-warped displacement
+    }
+    
+    // Final distance estimation using the fractal escape formula
+    return 0.5 * log(r) * r / dr;
+}
+
 float SignedDistanceFromScene(float3 p, float time)
 {
     switch (FunctionNum)
@@ -272,6 +331,10 @@ float SignedDistanceFromScene(float3 p, float time)
             return SignedDistanceCoolEffect(p, time);
         case 5:
             return SignedDistnaceFractal(p, time);
+        case 6:
+            return SignedDistanceInfiniteSphereLattice(p, 100.0, 1.0, time);
+        case 7:
+            return SignedDistanceFromMandelBulb(p, time);
         default:
             return 0.0;
     }
