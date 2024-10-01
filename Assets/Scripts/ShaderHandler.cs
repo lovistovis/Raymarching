@@ -111,9 +111,6 @@ public class ShaderHandler : MonoBehaviour
         frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY;
         Debug.Log(frameName);
 
-        // Movement
-        //float moveSpeed = walkSpeed + Time.timeSinceLevelLoad / 100;
-
         float scroll = Input.GetAxis("Mouse ScrollWheel");
 
         if (Input.GetKey(KeyCode.E))
