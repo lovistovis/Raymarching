@@ -236,7 +236,8 @@ MonoBehaviour:
   rollSensitivity: 0.322
   zoomSensitivity: 3
   speedSensitivity: 1
-  timeSensitivity: 0
+  timeSensitivity: 0.97
+  scaleSensitivity: 0.89
   speedFactorOnShift: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

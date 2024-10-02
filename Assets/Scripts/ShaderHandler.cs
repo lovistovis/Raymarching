@@ -19,6 +19,7 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField][Range(0, 10)] private float zoomSensitivity;
     [SerializeField][Range(0, 10)] private float speedSensitivity;
     [SerializeField][Range(0, 10)] private float timeSensitivity;
+    [SerializeField][Range(0, 10)] private float scaleSensitivity;
     [SerializeField][Range(1, 2)] private float speedFactorOnShift;
 
     private RenderTexture renderTexture;
@@ -39,6 +40,7 @@ public class ShaderHandler : MonoBehaviour
     private string frameName;
     private float randomRange = 1000f;
     private float lastTime = 0;
+    private float scale = 1.0f;
     private int functionNum;
     private int colorNum;
     private int saveFrames = 0;
@@ -108,7 +110,7 @@ public class ShaderHandler : MonoBehaviour
 
         transform.localEulerAngles = new Vector3(cameraRotationY, cameraRotationX, cameraRotationZ);
 
-        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY;
+        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + "_S" + scale;
         Debug.Log(frameName);
 
         float scroll = Input.GetAxis("Mouse ScrollWheel");
@@ -119,12 +121,16 @@ public class ShaderHandler : MonoBehaviour
         }
         else if (Input.GetKey(KeyCode.F))
         {
-            timeSpeed *= Mathf.Abs(1 + scroll * speedSensitivity);
+            timeSpeed *= Mathf.Abs(1 + scroll * timeSensitivity);
         }
         else if (Input.GetKey(KeyCode.I))
         {
             iterations += scroll != 0 ? Mathf.RoundToInt(Mathf.Sign(scroll)) : 0;
             iterations = Mathf.RoundToInt(iterations * Mathf.Abs(1 + scroll * speedSensitivity));
+        }
+        else if (Input.GetKey(KeyCode.X))
+        {
+            scale *= Mathf.Abs(1 + scroll * scaleSensitivity);
         }
         else
         {
@@ -222,6 +228,7 @@ public class ShaderHandler : MonoBehaviour
         rayMarchingShader.SetInt("ColorNum", colorNum);
         rayMarchingShader.SetFloats("CameraPosition", transform.position.x, transform.position.y, transform.position.z);
         rayMarchingShader.SetFloat("Time", lastTime);
+        rayMarchingShader.SetFloat("Scale", scale);
         rayMarchingShader.SetFloat("Seed", Random.Range(-randomRange, randomRange));
         rayMarchingShader.SetMatrix("CameraToWorld", mainCamera.cameraToWorldMatrix);
         rayMarchingShader.SetMatrix("CameraInverseProjection", mainCamera.projectionMatrix.inverse);
