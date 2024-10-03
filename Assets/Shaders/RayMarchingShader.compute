@@ -447,7 +447,7 @@ float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, f
             return float3(sin(rayPosition.x * colorModifier.x) * cos(normal.x * colorModifier.x), cos(rayPosition.y * colorModifier.y) * tan(normal.y * colorModifier.y), cos(rayPosition.z * colorModifier.z) * sin(normal.z * colorModifier.z));
         case 10:
             lightPos = CameraPosition;
-            dotSN = lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition * rayPosition)), sin(time) + colorModifier.x - 1);
+            dotSN = lerp(abs(snoise(rayPosition.xyz * colorModifier.w)), dot(normal, normalize(lightPos - rayPosition * rayPosition)), sin(time) + colorModifier.x - 1);
             color = float3(0.5 + 0.5 * normal) * dotSN * colorModifier.y;
             return convertHslToRgb(convertRgbToHsl(color + colorModifier.z) + float3(sin((time / 3) + 1) / 2 * colorModifier.w, 0, 0));
         case 11:
