@@ -42,7 +42,6 @@ public class ShaderHandler : MonoBehaviour
     private float cameraRotationZ = 0;
     private bool moveTime = false;
     private bool saveNextFrame = false;
-    private bool saveNextNextFrame = false;
     private bool alwaysShowFinalColor = true;
     private string frameName;
     private float previousFOV;
@@ -211,7 +210,7 @@ public class ShaderHandler : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.O))
         {
-            saveNextNextFrame = true;
+            saveNextFrame = true;
         }
 
         if (Input.GetKeyDown(KeyCode.M))
@@ -284,8 +283,6 @@ public class ShaderHandler : MonoBehaviour
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
-        if (saveNextNextFrame) { saveNextFrame = true; saveNextNextFrame = false; }
-
         int kernelIndex = rayMarchingShader.FindKernel("CSMain");
 
         ComputeBuffer loseBuffer = new ComputeBuffer(1, sizeof(float));
