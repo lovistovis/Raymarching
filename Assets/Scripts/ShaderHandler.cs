@@ -119,13 +119,13 @@ public class ShaderHandler : MonoBehaviour
 
         float scroll = Input.GetAxis("Mouse ScrollWheel");
 
-        if (Input.GetKey(KeyCode.E))
-        {
-            moveSpeed *= Mathf.Abs(1 + scroll * speedSensitivity);
-        }
-        else if (Input.GetKey(KeyCode.F))
+        if (Input.GetKey(KeyCode.F))
         {
             timeSpeed *= Mathf.Abs(1 + scroll * timeSensitivity);
+        }
+        else if (Input.GetKey(KeyCode.E))
+        {
+            moveSpeed *= Mathf.Abs(1 + scroll * speedSensitivity);
         }
         else if (Input.GetKey(KeyCode.I))
         {
