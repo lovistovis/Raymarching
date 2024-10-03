@@ -229,16 +229,18 @@ MonoBehaviour:
   photoResolutionY: 4096
   startFunctionNum: 0
   startColorNum: 0
-  baseMoveSpeed: 0.001
+  baseMoveSpeed: 0.1
   baseTimeSpeed: 0.001
+  baseFOV: 60
   baseRayMarchingIterations: 3423
-  mouseSensitivity: 1.13
+  speedFactorOnShift: 1
+  mouseSensitivity: 0.102
   rollSensitivity: 0.322
-  zoomSensitivity: 3
+  zoomSensitivity: 0.551
   speedSensitivity: 1
   timeSensitivity: 0.97
   scaleSensitivity: 0.89
-  speedFactorOnShift: 1
+  colorModifierSensitvity: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

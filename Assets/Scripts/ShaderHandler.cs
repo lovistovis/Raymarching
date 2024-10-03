@@ -16,9 +16,9 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField, Range(0, 180)] private float baseFOV = 60.0f;
     [SerializeField, Range(1, 10000)] private int baseRayMarchingIterations;
     [SerializeField, Range(1, 2)] private float speedFactorOnShift;
-    [SerializeField, Range(0, 2)] private float mouseSensitivity;
+    [SerializeField, Range(0, 0.5f)] private float mouseSensitivity;
     [SerializeField, Range(0, 2)] private float rollSensitivity;
-    [SerializeField, Range(0, 10)] private float zoomSensitivity;
+    [SerializeField, Range(0, 1)] private float zoomSensitivity;
     [SerializeField, Range(0, 10)] private float speedSensitivity;
     [SerializeField, Range(0, 10)] private float timeSensitivity;
     [SerializeField, Range(0, 10)] private float scaleSensitivity;
@@ -103,8 +103,8 @@ public class ShaderHandler : MonoBehaviour
         ResolutionCheck();
 
         // Camera rotation
-        cameraRotationX += Input.GetAxis("Mouse X") * mouseSensitivity * mainCamera.fieldOfView * 0.05f;
-        cameraRotationY -= Input.GetAxis("Mouse Y") * mouseSensitivity * mainCamera.fieldOfView * 0.05f;
+        cameraRotationX += Input.GetAxis("Mouse X") * mouseSensitivity * mainCamera.fieldOfView;
+        cameraRotationY -= Input.GetAxis("Mouse Y") * mouseSensitivity * mainCamera.fieldOfView;
 
         cameraRotationY = Mathf.Clamp(cameraRotationY, -90, 90);
 
@@ -141,7 +141,7 @@ public class ShaderHandler : MonoBehaviour
         }
         else
         {
-            mainCamera.fieldOfView -= scroll * (zoomSensitivity * 0.1f * mainCamera.fieldOfView);
+            mainCamera.fieldOfView -= scroll * (zoomSensitivity * mainCamera.fieldOfView);
             mainCamera.fieldOfView = Mathf.Clamp(mainCamera.fieldOfView, 0, 180);
         }
 
@@ -226,7 +226,7 @@ public class ShaderHandler : MonoBehaviour
             }
         }
 
-        transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed / 0.001f;
+        transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
