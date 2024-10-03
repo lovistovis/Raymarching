@@ -35,6 +35,7 @@ public class ShaderHandler : MonoBehaviour
     private float cameraRotationZ = 0;
     private bool moveTime = true;
     private bool saveNextFrame = false;
+    private bool saveNextNextFrame = false;
     private bool alwaysShowFinalColor = true;
     private float moveSpeed;
     private float timeSpeed;
@@ -186,7 +187,7 @@ public class ShaderHandler : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.O))
         {
-            saveNextFrame = true;
+            saveNextNextFrame = true;
         }
 
         if (Input.GetKeyDown(KeyCode.M))
@@ -229,19 +230,24 @@ public class ShaderHandler : MonoBehaviour
         transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
     }
 
+    private RenderTexture CurrentRenderTexture()
+    {
+        return saveNextFrame ? photoRenderTexture : renderTexture;
+    }
+
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
+        if (saveNextNextFrame) { saveNextFrame = true; saveNextNextFrame = false; }
+
         int kernelIndex = rayMarchingShader.FindKernel("CSMain");
 
         ComputeBuffer loseBuffer = new ComputeBuffer(1, sizeof(float));
         loseBuffer.SetData(new float[] { 0 });
 
-        renderTexture = saveNextFrame ? photoRenderTexture : renderTexture;
-
         rayMarchingShader.SetTexture(kernelIndex, "SourceTexture", source);
-        rayMarchingShader.SetTexture(kernelIndex, "RenderTexture", renderTexture);
+        rayMarchingShader.SetTexture(kernelIndex, "RenderTexture", CurrentRenderTexture());
         rayMarchingShader.SetBuffer(kernelIndex, "LoseBuffer", loseBuffer);
-        rayMarchingShader.SetInts("Resolution", renderTexture.width, renderTexture.height);
+        rayMarchingShader.SetInts("Resolution", CurrentRenderTexture().width, CurrentRenderTexture().height);
         rayMarchingShader.SetInt("RayMarchingIterations", iterations);
         rayMarchingShader.SetBool("AlwaysShowFinalColor", alwaysShowFinalColor);
         rayMarchingShader.SetInt("FunctionNum", functionNum);
@@ -254,7 +260,8 @@ public class ShaderHandler : MonoBehaviour
         rayMarchingShader.SetMatrix("CameraToWorld", mainCamera.cameraToWorldMatrix);
         rayMarchingShader.SetMatrix("CameraInverseProjection", mainCamera.projectionMatrix.inverse);
 
-        rayMarchingShader.Dispatch(kernelIndex, renderTexture.width / 8, renderTexture.height / 8, 1);
+        rayMarchingShader.Dispatch(kernelIndex, CurrentRenderTexture().width / 8, CurrentRenderTexture().height / 8, 1);
+        Debug.Log(CurrentRenderTexture().width);
 
         float[] data = new float[1];
         loseBuffer.GetData(data);
@@ -271,7 +278,7 @@ public class ShaderHandler : MonoBehaviour
             {
                 saveFrames++;
                 // Write prevous frame to screen
-                Graphics.Blit(renderTexture, destination);
+                Graphics.Blit(CurrentRenderTexture(), destination);
                 return;
             }
             saveFrames = 0;
@@ -287,12 +294,12 @@ public class ShaderHandler : MonoBehaviour
             File.WriteAllBytes(path, bytes);
 
             // Write prevous frame to screen
-            Graphics.Blit(renderTexture, destination);
+            Graphics.Blit(CurrentRenderTexture(), destination);
         }
         else
         {
-            // Copy contents from new render texture to camera destination
-            Graphics.Blit(renderTexture, destination);
+            // Copy contents from new currentRender texture to camera destination
+            Graphics.Blit(CurrentRenderTexture(), destination);
         }
     }
 }
