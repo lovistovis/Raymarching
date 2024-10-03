@@ -13,6 +13,7 @@ int ColorNum;
 float3 CameraPosition;
 float Time;
 float Scale;
+float ColorModifier;
 int RayMarchingIterations;
 bool AlwaysShowFinalColor;
 float4x4 CameraToWorld;
@@ -399,7 +400,7 @@ float SignedDistanceFromScene(float3 p, float time)
     }
 }
 
-float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, float time)
+float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, float time, float colorModifier)
 {
     float3 lightPos;
     float dotSN;
@@ -536,7 +537,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     float depth = abs(length(rayPosition - CameraPosition));
     float3 normal = estimateNormal(rayPosition, Time);
 
-    float3 color = RayColor(rayPosition, notFound, normal, depth, Time);
+    float3 color = RayColor(rayPosition, notFound, normal, depth, Time, ColorModifier);
 
     RenderTexture[id.xy] = float4(color.xyz, 1.0);
 }

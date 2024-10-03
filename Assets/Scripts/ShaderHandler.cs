@@ -13,14 +13,16 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField] private int startColorNum;
     [SerializeField] private float baseMoveSpeed;
     [SerializeField] private float baseTimeSpeed;
-    [SerializeField][Range(1, 10000)] private int baseRayMarchingIterations;
-    [SerializeField][Range(0, 2)] private float mouseSensitivity;
-    [SerializeField][Range(0, 2)] private float rollSensitivity;
-    [SerializeField][Range(0, 10)] private float zoomSensitivity;
-    [SerializeField][Range(0, 10)] private float speedSensitivity;
-    [SerializeField][Range(0, 10)] private float timeSensitivity;
-    [SerializeField][Range(0, 10)] private float scaleSensitivity;
-    [SerializeField][Range(1, 2)] private float speedFactorOnShift;
+    [SerializeField, Range(0, 180)] private float baseFOV = 60.0f;
+    [SerializeField, Range(1, 10000)] private int baseRayMarchingIterations;
+    [SerializeField, Range(1, 2)] private float speedFactorOnShift;
+    [SerializeField, Range(0, 2)] private float mouseSensitivity;
+    [SerializeField, Range(0, 2)] private float rollSensitivity;
+    [SerializeField, Range(0, 10)] private float zoomSensitivity;
+    [SerializeField, Range(0, 10)] private float speedSensitivity;
+    [SerializeField, Range(0, 10)] private float timeSensitivity;
+    [SerializeField, Range(0, 10)] private float scaleSensitivity;
+    [SerializeField, Range(0, 10)] private float colorModifierSensitvity;
 
     private RenderTexture renderTexture;
     private RenderTexture photoRenderTexture;
@@ -41,6 +43,7 @@ public class ShaderHandler : MonoBehaviour
     private float randomRange = 1000f;
     private float lastTime = 0;
     private float scale = 1.0f;
+    private float colorModifier = 1.0f;
     private int functionNum;
     private int colorNum;
     private int saveFrames = 0;
@@ -110,7 +113,7 @@ public class ShaderHandler : MonoBehaviour
 
         transform.localEulerAngles = new Vector3(cameraRotationY, cameraRotationX, cameraRotationZ);
 
-        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + "_S" + scale;
+        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + "_S" + scale + "_CM" + colorModifier;
         Debug.Log(frameName);
 
         float scroll = Input.GetAxis("Mouse ScrollWheel");
@@ -132,17 +135,24 @@ public class ShaderHandler : MonoBehaviour
         {
             scale *= Mathf.Abs(1 + scroll * scaleSensitivity);
         }
+        else if (Input.GetKey(KeyCode.C))
+        {
+            colorModifier *= Mathf.Abs(1 + scroll * colorModifierSensitvity);
+        }
         else
         {
             mainCamera.fieldOfView -= scroll * (zoomSensitivity * 0.1f * mainCamera.fieldOfView);
             mainCamera.fieldOfView = Mathf.Clamp(mainCamera.fieldOfView, 0, 180);
         }
 
-        //position += transform.forward * moveSpeed;
         float currentMoveSpeed = Input.GetKey(KeyCode.LeftShift) ? moveSpeed * speedFactorOnShift : moveSpeed;
-        transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed / 0.001f;
 
         if (moveTime) { lastTime += Time.deltaTime * timeSpeed; }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            moveTime = !moveTime;
+        }
 
         if (Input.GetKeyDown(KeyCode.End))
         {
@@ -154,10 +164,14 @@ public class ShaderHandler : MonoBehaviour
             moveTime = false;
         }
 
-        if (Input.GetKeyDown(KeyCode.R))
+        if (Input.GetKeyDown(KeyCode.Q))
         {
-            moveSpeed = baseMoveSpeed;
-            timeSpeed = baseTimeSpeed;
+            timeSpeed = timeSpeed * -1;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            mainCamera.fieldOfView = baseFOV;
         }
 
         if (Input.GetKeyDown(KeyCode.H))
@@ -165,36 +179,19 @@ public class ShaderHandler : MonoBehaviour
             cameraRotationZ = 0f;
         }
 
-        if (Input.GetKeyDown(KeyCode.Z))
-        {
-            mainCamera.fieldOfView = 60;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            moveTime = !moveTime;
-        }
-
         if (Input.GetKeyDown(KeyCode.P))
         {
             alwaysShowFinalColor = !alwaysShowFinalColor;
         }
 
-        if (Input.GetKeyDown(KeyCode.Q))
-        {
-            timeSpeed = timeSpeed * -1;
-        }
-
-        if (Input.GetKeyDown(KeyCode.T))
-        {
-            lastTime = 0;
-        }
-
-        if (Input.GetKeyDown(KeyCode.M)) { transform.position = startPos; }
-
         if (Input.GetKeyDown(KeyCode.O))
         {
             saveNextFrame = true;
+        }
+
+        if (Input.GetKeyDown(KeyCode.M))
+        {
+            transform.position = startPos;
         }
 
         if (Input.GetKey(KeyCode.C))
@@ -207,6 +204,29 @@ public class ShaderHandler : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.PageUp)) { functionNum++; }
             else if (Input.GetKeyDown(KeyCode.PageDown)) { functionNum--; }
         }
+
+        if (Input.GetKey(KeyCode.R))
+        {
+            if (Input.GetKeyDown(KeyCode.T))
+            {
+                timeSpeed = baseTimeSpeed;
+            }
+
+            if (Input.GetKeyDown(KeyCode.S))
+            {
+                moveSpeed = baseMoveSpeed;
+            }
+            currentMoveSpeed = 0f;
+        }
+        else
+        {
+            if (Input.GetKeyDown(KeyCode.T))
+            {
+                lastTime = 0;
+            }
+        }
+
+        transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed / 0.001f;
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
@@ -229,6 +249,7 @@ public class ShaderHandler : MonoBehaviour
         rayMarchingShader.SetFloats("CameraPosition", transform.position.x, transform.position.y, transform.position.z);
         rayMarchingShader.SetFloat("Time", lastTime);
         rayMarchingShader.SetFloat("Scale", scale);
+        rayMarchingShader.SetFloat("ColorModifier", colorModifier);
         rayMarchingShader.SetFloat("Seed", Random.Range(-randomRange, randomRange));
         rayMarchingShader.SetMatrix("CameraToWorld", mainCamera.cameraToWorldMatrix);
         rayMarchingShader.SetMatrix("CameraInverseProjection", mainCamera.projectionMatrix.inverse);
