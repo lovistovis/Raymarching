@@ -533,7 +533,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         // Move ray to radius of circle
         rayPosition += rayDirection * distance;
 
-        if (i == Iterations || length(rayPosition - CameraPosition) > Bounds) { notFound = true; break; }
+        if (i == Iterations || length(rayPosition - CameraPosition) > Bounds) {
+            notFound = true;
+            break;
+        }
     }
 
     float depth = abs(length(rayPosition - CameraPosition));
