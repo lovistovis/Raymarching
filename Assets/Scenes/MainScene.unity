@@ -227,6 +227,7 @@ MonoBehaviour:
   photoResolutionX: 4096
   photoResolutionY: 4096
   basePos: {x: 2, y: 1, z: 0.5}
+  baseTime: 0.01
   baseTimeSpeed: 0.001
   baseMoveSpeed: 0.1
   baseIterations: 10000
@@ -236,11 +237,10 @@ MonoBehaviour:
   baseScale: 1
   baseBounds: 100000
   baseMinDist: 0.01
-  baseFOV: 60
   speedFactorOnShift: 2
   mouseSensitivity: 0.102
   timeSensitivity: 0.97
-  moveSpeedSensitivity: 1.19
+  moveSpeedSensitivity: 0.51
   iterationsSensitivity: 1.36
   zoomSensitivity: 0.551
   rollSensitivity: 0.322

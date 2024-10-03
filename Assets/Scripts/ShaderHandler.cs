@@ -9,6 +9,7 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField] private int photoResolutionX = 4096;
     [SerializeField] private int photoResolutionY = 4096;
     [SerializeField] private Vector3 basePos = new Vector3(2.0f, 1.0f, 0.5f);
+    [SerializeField] private float baseTime = 0.01f;
     [SerializeField] private float baseTimeSpeed = 0.001f;
     [SerializeField] private float baseMoveSpeed = 0.1f;
     [SerializeField] private int baseIterations = 10000;
@@ -18,7 +19,6 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField] private float baseScale = 1;
     [SerializeField] private float baseBounds = 100000;
     [SerializeField] private float baseMinDist = 0.01f;
-    [SerializeField, Range(0, 180)] private float baseFOV = 60.0f;
     [SerializeField, Range(1, 3)] private float speedFactorOnShift;
     [SerializeField, Range(0, 0.5f)] private float mouseSensitivity;
     [SerializeField, Range(0, 10)] private float timeSensitivity;
@@ -40,12 +40,13 @@ public class ShaderHandler : MonoBehaviour
     private float cameraRotationX = 0;
     private float cameraRotationY = 0;
     private float cameraRotationZ = 0;
-    private bool moveTime = true;
+    private bool moveTime = false;
     private bool saveNextFrame = false;
     private bool saveNextNextFrame = false;
     private bool alwaysShowFinalColor = true;
     private string frameName;
-    private float lastTime = 0;
+    private float previousFOV;
+    private float lastTime;
     private int saveFrames = 0;
     private int functionNum;
     private int colorNum;
@@ -92,7 +93,8 @@ public class ShaderHandler : MonoBehaviour
     {
         mainCamera = Camera.main;
 
-        mainCamera.fieldOfView = baseFOV;
+        previousFOV = mainCamera.fieldOfView;
+        lastTime = baseTime;
         transform.position = basePos;
         timeSpeed = baseTimeSpeed;
         moveSpeed = baseMoveSpeed;
@@ -154,7 +156,7 @@ public class ShaderHandler : MonoBehaviour
         {
             scale *= Mathf.Abs(1 + scroll * scaleSensitivity);
         }
-        else if (Input.GetKey(KeyCode.X))
+        else if (Input.GetKey(KeyCode.B))
         {
             bounds *= Mathf.Abs(1 + scroll * boundsSensitivity);
         }
@@ -194,7 +196,7 @@ public class ShaderHandler : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Z))
         {
-            mainCamera.fieldOfView = baseFOV;
+            mainCamera.fieldOfView = previousFOV;
         }
 
         if (Input.GetKeyDown(KeyCode.H))
@@ -219,7 +221,7 @@ public class ShaderHandler : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.T))
         {
-            lastTime = 0;
+            lastTime = baseTime;
         }
 
         if (Input.GetKey(KeyCode.C))
