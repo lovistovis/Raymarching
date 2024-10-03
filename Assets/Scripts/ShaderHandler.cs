@@ -6,23 +6,30 @@ using System.IO;
 public class ShaderHandler : MonoBehaviour
 {
     [SerializeField] private ComputeShader rayMarchingShader;
-    [SerializeField] private Vector3 startPos = new Vector3(2.0f, 1.0f, 0.5f);
     [SerializeField] private int photoResolutionX = 4096;
     [SerializeField] private int photoResolutionY = 4096;
-    [SerializeField] private int startFunctionNum;
-    [SerializeField] private int startColorNum;
-    [SerializeField] private float baseMoveSpeed;
-    [SerializeField] private float baseTimeSpeed;
+    [SerializeField] private Vector3 basePos = new Vector3(2.0f, 1.0f, 0.5f);
+    [SerializeField] private float baseTimeSpeed = 0.001f;
+    [SerializeField] private float baseMoveSpeed = 0.1f;
+    [SerializeField] private int baseIterations = 10000;
+    [SerializeField] private int baseFunctionNum = 0;
+    [SerializeField] private int baseColorNum = 0;
+    [SerializeField] private float baseColorModifier = 1;
+    [SerializeField] private float baseScale = 1;
+    [SerializeField] private float baseBounds = 100000;
+    [SerializeField] private float baseMinDist = 0.01f;
     [SerializeField, Range(0, 180)] private float baseFOV = 60.0f;
-    [SerializeField, Range(1, 10000)] private int baseRayMarchingIterations;
-    [SerializeField, Range(1, 2)] private float speedFactorOnShift;
+    [SerializeField, Range(1, 3)] private float speedFactorOnShift;
     [SerializeField, Range(0, 0.5f)] private float mouseSensitivity;
-    [SerializeField, Range(0, 2)] private float rollSensitivity;
-    [SerializeField, Range(0, 1)] private float zoomSensitivity;
-    [SerializeField, Range(0, 10)] private float speedSensitivity;
     [SerializeField, Range(0, 10)] private float timeSensitivity;
-    [SerializeField, Range(0, 10)] private float scaleSensitivity;
+    [SerializeField, Range(0, 10)] private float moveSpeedSensitivity;
+    [SerializeField, Range(0, 10)] private float iterationsSensitivity;
+    [SerializeField, Range(0, 1)] private float zoomSensitivity;
+    [SerializeField, Range(0, 2)] private float rollSensitivity;
     [SerializeField, Range(0, 10)] private float colorModifierSensitvity;
+    [SerializeField, Range(0, 10)] private float scaleSensitivity;
+    [SerializeField, Range(0, 10)] private float boundsSensitivity;
+    [SerializeField, Range(0, 10)] private float minDistSensitivity;
 
     private RenderTexture renderTexture;
     private RenderTexture photoRenderTexture;
@@ -37,17 +44,18 @@ public class ShaderHandler : MonoBehaviour
     private bool saveNextFrame = false;
     private bool saveNextNextFrame = false;
     private bool alwaysShowFinalColor = true;
-    private float moveSpeed;
-    private float timeSpeed;
-    private int iterations;
     private string frameName;
-    private float randomRange = 1000f;
     private float lastTime = 0;
-    private float scale = 1.0f;
-    private float colorModifier = 1.0f;
+    private int saveFrames = 0;
     private int functionNum;
     private int colorNum;
-    private int saveFrames = 0;
+    private float timeSpeed;
+    private float moveSpeed;
+    private int iterations;
+    private float colorModifier;
+    private float scale;
+    private float bounds;
+    private float minDist;
 
     public static ShaderHandler Instance;
 
@@ -84,12 +92,17 @@ public class ShaderHandler : MonoBehaviour
     {
         mainCamera = Camera.main;
 
-        transform.position = startPos;
-        moveSpeed = baseMoveSpeed;
+        mainCamera.fieldOfView = baseFOV;
+        transform.position = basePos;
         timeSpeed = baseTimeSpeed;
-        iterations = baseRayMarchingIterations;
-        functionNum = startFunctionNum;
-        colorNum = startColorNum;
+        moveSpeed = baseMoveSpeed;
+        iterations = baseIterations;
+        functionNum = baseFunctionNum;
+        colorNum = baseColorNum;
+        colorModifier = baseColorModifier;
+        scale = baseScale;
+        bounds = baseBounds;
+        minDist = baseMinDist;
 
         // Set up render texture
         ResolutionCheck();
@@ -114,7 +127,7 @@ public class ShaderHandler : MonoBehaviour
 
         transform.localEulerAngles = new Vector3(cameraRotationY, cameraRotationX, cameraRotationZ);
 
-        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + "_S" + scale + "_CM" + colorModifier;
+        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + "_S" + scale + "_I" + iterations + "_CM" + colorModifier + "_B" + bounds + "_MD" + minDist;
         Debug.Log(frameName);
 
         float scroll = Input.GetAxis("Mouse ScrollWheel");
@@ -125,20 +138,29 @@ public class ShaderHandler : MonoBehaviour
         }
         else if (Input.GetKey(KeyCode.E))
         {
-            moveSpeed *= Mathf.Abs(1 + scroll * speedSensitivity);
+            moveSpeed *= Mathf.Abs(1 + scroll * moveSpeedSensitivity);
         }
         else if (Input.GetKey(KeyCode.I))
         {
             iterations += scroll != 0 ? Mathf.RoundToInt(Mathf.Sign(scroll)) : 0;
-            iterations = Mathf.RoundToInt(iterations * Mathf.Abs(1 + scroll * speedSensitivity));
+            iterations = Mathf.RoundToInt(iterations * Mathf.Abs(1 + scroll * iterationsSensitivity));
+            iterations = Mathf.Clamp(iterations, 1, 999999999);
+        }
+        else if (Input.GetKey(KeyCode.C))
+        {
+            colorModifier *= Mathf.Abs(1 + scroll * colorModifierSensitvity);
         }
         else if (Input.GetKey(KeyCode.X))
         {
             scale *= Mathf.Abs(1 + scroll * scaleSensitivity);
         }
-        else if (Input.GetKey(KeyCode.C))
+        else if (Input.GetKey(KeyCode.X))
         {
-            colorModifier *= Mathf.Abs(1 + scroll * colorModifierSensitvity);
+            bounds *= Mathf.Abs(1 + scroll * boundsSensitivity);
+        }
+        else if (Input.GetKey(KeyCode.V))
+        {
+            minDist *= Mathf.Abs(1 + scroll * minDistSensitivity);
         }
         else
         {
@@ -192,7 +214,12 @@ public class ShaderHandler : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.M))
         {
-            transform.position = startPos;
+            transform.position = basePos;
+        }
+
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            lastTime = 0;
         }
 
         if (Input.GetKey(KeyCode.C))
@@ -208,23 +235,41 @@ public class ShaderHandler : MonoBehaviour
 
         if (Input.GetKey(KeyCode.R))
         {
-            if (Input.GetKeyDown(KeyCode.T))
+            if (Input.GetKeyDown(KeyCode.F))
             {
                 timeSpeed = baseTimeSpeed;
             }
 
-            if (Input.GetKeyDown(KeyCode.S))
+            if (Input.GetKeyDown(KeyCode.E))
             {
                 moveSpeed = baseMoveSpeed;
             }
-            currentMoveSpeed = 0f;
-        }
-        else
-        {
-            if (Input.GetKeyDown(KeyCode.T))
+
+            if (Input.GetKeyDown(KeyCode.I))
             {
-                lastTime = 0;
+                iterations = baseIterations;
             }
+
+            if (Input.GetKeyDown(KeyCode.X))
+            {
+                scale = baseScale;
+            }
+
+            if (Input.GetKeyDown(KeyCode.C))
+            {
+                colorModifier = baseColorModifier;
+            }
+
+            if (Input.GetKeyDown(KeyCode.B))
+            {
+                bounds = baseBounds;
+            }
+
+            if (Input.GetKeyDown(KeyCode.V))
+            {
+                minDist = baseMinDist;
+            }
+            currentMoveSpeed = 0f;
         }
 
         transform.position += (transform.right * Input.GetAxis("Horizontal") + transform.forward * Input.GetAxis("Vertical")) * currentMoveSpeed;
@@ -248,20 +293,20 @@ public class ShaderHandler : MonoBehaviour
         rayMarchingShader.SetTexture(kernelIndex, "RenderTexture", CurrentRenderTexture());
         rayMarchingShader.SetBuffer(kernelIndex, "LoseBuffer", loseBuffer);
         rayMarchingShader.SetInts("Resolution", CurrentRenderTexture().width, CurrentRenderTexture().height);
-        rayMarchingShader.SetInt("RayMarchingIterations", iterations);
-        rayMarchingShader.SetBool("AlwaysShowFinalColor", alwaysShowFinalColor);
-        rayMarchingShader.SetInt("FunctionNum", functionNum);
-        rayMarchingShader.SetInt("ColorNum", colorNum);
-        rayMarchingShader.SetFloats("CameraPosition", transform.position.x, transform.position.y, transform.position.z);
-        rayMarchingShader.SetFloat("Time", lastTime);
-        rayMarchingShader.SetFloat("Scale", scale);
-        rayMarchingShader.SetFloat("ColorModifier", colorModifier);
-        rayMarchingShader.SetFloat("Seed", Random.Range(-randomRange, randomRange));
         rayMarchingShader.SetMatrix("CameraToWorld", mainCamera.cameraToWorldMatrix);
         rayMarchingShader.SetMatrix("CameraInverseProjection", mainCamera.projectionMatrix.inverse);
+        rayMarchingShader.SetFloats("CameraPosition", transform.position.x, transform.position.y, transform.position.z);
+        rayMarchingShader.SetBool("AlwaysShowFinalColor", alwaysShowFinalColor);
+        rayMarchingShader.SetFloat("Time", lastTime);
+        rayMarchingShader.SetInt("Iterations", iterations);
+        rayMarchingShader.SetInt("FunctionNum", functionNum);
+        rayMarchingShader.SetInt("ColorNum", colorNum);
+        rayMarchingShader.SetFloat("Scale", scale);
+        rayMarchingShader.SetFloat("ColorModifier", colorModifier);
+        rayMarchingShader.SetFloat("Bounds", bounds);
+        rayMarchingShader.SetFloat("MinDist", minDist);
 
         rayMarchingShader.Dispatch(kernelIndex, CurrentRenderTexture().width / 8, CurrentRenderTexture().height / 8, 1);
-        Debug.Log(CurrentRenderTexture().width);
 
         float[] data = new float[1];
         loseBuffer.GetData(data);

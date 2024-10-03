@@ -224,23 +224,30 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rayMarchingShader: {fileID: 7200000, guid: 88edec368fd49444b951f9ae8bec5533, type: 3}
-  startPos: {x: 2, y: 1, z: 0.5}
   photoResolutionX: 4096
   photoResolutionY: 4096
-  startFunctionNum: 0
-  startColorNum: 0
-  baseMoveSpeed: 0.1
+  basePos: {x: 2, y: 1, z: 0.5}
   baseTimeSpeed: 0.001
+  baseMoveSpeed: 0.1
+  baseIterations: 10000
+  baseFunctionNum: 0
+  baseColorNum: 0
+  baseColorModifier: 1
+  baseScale: 1
+  baseBounds: 100000
+  baseMinDist: 0.01
   baseFOV: 60
-  baseRayMarchingIterations: 3423
-  speedFactorOnShift: 1
+  speedFactorOnShift: 2
   mouseSensitivity: 0.102
-  rollSensitivity: 0.322
-  zoomSensitivity: 0.551
-  speedSensitivity: 1
   timeSensitivity: 0.97
+  moveSpeedSensitivity: 1.19
+  iterationsSensitivity: 1.36
+  zoomSensitivity: 0.551
+  rollSensitivity: 0.322
+  colorModifierSensitvity: 1.23
   scaleSensitivity: 0.89
-  colorModifierSensitvity: 0
+  boundsSensitivity: 1.23
+  minDistSensitivity: 1.19
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -14,7 +14,9 @@ float3 CameraPosition;
 float Time;
 float Scale;
 float ColorModifier;
-int RayMarchingIterations;
+float Bounds;
+float MinDist;
+int Iterations;
 bool AlwaysShowFinalColor;
 float4x4 CameraToWorld;
 float4x4 CameraInverseProjection;
@@ -522,16 +524,16 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     bool notFound = false;
     float3 rayPosition = CameraPosition;
-    for (int i = 0; i <= RayMarchingIterations; i++)
+    for (int i = 0; i <= Iterations; i++)
     {
         float distance = SignedDistanceFromScene(rayPosition, Time);
 
-        if (distance < 0.01) { break; }
+        if (distance < MinDist) { break; }
 
         // Move ray to radius of circle
         rayPosition += rayDirection * distance;
 
-        if (i == RayMarchingIterations || length(rayPosition - CameraPosition) > 100000) { notFound = true; break; }
+        if (i == Iterations || length(rayPosition - CameraPosition) > Bounds) { notFound = true; break; }
     }
 
     float depth = abs(length(rayPosition - CameraPosition));
