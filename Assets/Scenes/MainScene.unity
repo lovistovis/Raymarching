@@ -230,7 +230,7 @@ MonoBehaviour:
   baseTime: 0.01
   baseTimeSpeed: 0.001
   baseMoveSpeed: 0.1
-  baseIterations: 10000
+  baseIterations: 1000
   baseFunctionNum: 0
   baseColorNum: 0
   baseColorModifier: 1
@@ -239,15 +239,15 @@ MonoBehaviour:
   baseMinDist: 0.01
   speedFactorOnShift: 2
   mouseSensitivity: 0.102
-  timeSensitivity: 0.97
-  moveSpeedSensitivity: 0.51
+  timeSensitivity: 1.4
+  moveSpeedSensitivity: 1.36
   iterationsSensitivity: 1.36
   zoomSensitivity: 0.551
   rollSensitivity: 0.322
-  colorModifierSensitvity: 1.23
-  scaleSensitivity: 0.89
-  boundsSensitivity: 1.23
-  minDistSensitivity: 1.19
+  colorModifierSensitivity: 1.53
+  scaleSensitivity: 1.86
+  boundsSensitivity: 1.78
+  minDistSensitivity: 2.2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

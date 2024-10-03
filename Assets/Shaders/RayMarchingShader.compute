@@ -13,7 +13,7 @@ int ColorNum;
 float3 CameraPosition;
 float Time;
 float Scale;
-float ColorModifier;
+float4 ColorModifier;
 float Bounds;
 float MinDist;
 int Iterations;
@@ -402,7 +402,7 @@ float SignedDistanceFromScene(float3 p, float time)
     }
 }
 
-float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, float time, float colorModifier)
+float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, float time, float4 colorModifier)
 {
     float3 lightPos;
     float dotSN;
@@ -422,65 +422,65 @@ float3 RayColor(float3 rayPosition, bool notFound, float3 normal, float depth, f
         case 0:
             return float3(0.5 + 0.5 * normal);
         case 1:
-            grayscale = depth / 5000.0;
+            grayscale = pow(depth / colorModifier.x, colorModifier.y);
             return float3(grayscale, grayscale, grayscale);
         case 2:
-            return normal;
+            return normal * colorModifier.xyz;
         case 3:
-            lightPos = CameraPosition;
+            lightPos = CameraPosition + colorModifier.xyz;
             dotSN = lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), 1.0);
             return float3(0.5+0.5*normal) * dotSN;
         case 4:
             lightPos = CameraPosition;
             dotSN = lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition)), 1.0);
             color = float3(0.5 + 0.5 * normal) * dotSN;
-            return convertHslToRgb(convertRgbToHsl(color) + float3(sin((time / 3) + 1) / 2, 0, 0));
+            return convertHslToRgb(convertRgbToHsl(color) + colorModifier.xyz);
         case 5:
-            return float3(sin(rayPosition.x), tan(rayPosition.y), cos(rayPosition.z));
+            return float3(sin(rayPosition.x * colorModifier.x), tan(rayPosition.y * colorModifier.y), cos(rayPosition.z * colorModifier.z)) * colorModifier.w;
         case 6:
-            return float3(sin(rayPosition.x), 0.0, cos(rayPosition.z));
+            return float3(sin(rayPosition.x * colorModifier.x), colorModifier.y - 1.0, cos(rayPosition.z * colorModifier.z));
         case 7:
-            return float3(sin(tan(rayPosition.x)), cos(rayPosition.y), cos(rayPosition.z));
+            return float3(sin(tan(rayPosition.x * colorModifier.x)), cos(rayPosition.y * colorModifier.y), cos(rayPosition.z * colorModifier.z));
         case 8:
-            return float3(sin(rayPosition.x) * normal.x, cos(rayPosition.y) * normal.y, cos(rayPosition.z) * normal.z);
+            return float3(sin(rayPosition.x * colorModifier.x) * normal.x, cos(rayPosition.y * colorModifier.y) * normal.y, cos(rayPosition.z * colorModifier.z) * normal.z);
         case 9:
-            return float3(sin(rayPosition.x) * cos(normal.x), cos(rayPosition.y) * tan(normal.y), cos(rayPosition.z) * sin(normal.z));
+            return float3(sin(rayPosition.x * colorModifier.x) * cos(normal.x * colorModifier.x), cos(rayPosition.y * colorModifier.y) * tan(normal.y * colorModifier.y), cos(rayPosition.z * colorModifier.z) * sin(normal.z * colorModifier.z));
         case 10:
             lightPos = CameraPosition;
-            dotSN = lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition * rayPosition)), sin(time));
-            color = float3(0.5 + 0.5 * normal) * dotSN;
-            return convertHslToRgb(convertRgbToHsl(color) + float3(sin((time / 3) + 1) / 2, 0, 0));
+            dotSN = lerp(abs(snoise(rayPosition.xyz)), dot(normal, normalize(lightPos - rayPosition * rayPosition)), sin(time) + colorModifier.x - 1);
+            color = float3(0.5 + 0.5 * normal) * dotSN * colorModifier.y;
+            return convertHslToRgb(convertRgbToHsl(color + colorModifier.z) + float3(sin((time / 3) + 1) / 2 * colorModifier.w, 0, 0));
         case 11:
-            grayscale = 0.5 + sin(normal.x) * 0.5;
+            grayscale = 0.5 + sin(pow(normal.x * colorModifier.x, colorModifier.y)) * 0.5;
             return float3(grayscale, grayscale, grayscale);
         case 12:
-            grayscale = 0.5 + sin(normal.y) * 0.5;
+            grayscale = 0.5 + sin(pow(normal.y * colorModifier.x, colorModifier.y)) * 0.5;
             return float3(grayscale, grayscale, grayscale);
         case 13:
-            grayscale = 0.5 + sin(normal.z) * 0.5;
+            grayscale = 0.5 + sin(pow(normal.z * colorModifier.x, colorModifier.y)) * 0.5;
             return float3(grayscale, grayscale, grayscale);
         case 14:
             part = 0.5 / 1.5;
-            grayscale = 0.5 + sin(normal.x) * part + sin(normal.y) * part + sin(normal.z) * part;
+            grayscale = 0.5 + sin(normal.x * colorModifier.x) * part + sin(normal.y * colorModifier.y) * part + sin(normal.z * colorModifier.z) * part;
             return float3(grayscale, grayscale, grayscale);
         case 15:
             part = 0.5 / 1.5;
-            grayscale = 0.5 + sin(normal.x) * part + sin(normal.y) * part + sin(normal.z) * part;
+            grayscale = 0.5 + sin(normal.x * colorModifier.x) * part + sin(normal.y * colorModifier.y) * part + sin(normal.z * colorModifier.z) * part;
             return float3(sin(grayscale * 100.0), cos(grayscale * 50.0), sin(grayscale * 10.0));
         case 16:
             part = 0.5 / 1.5;
-            grayscale = 0.5 + sin(normal.x) * part + sin(normal.y) * part + sin(normal.z) * part;
-            float3 color1 = float3(sin(grayscale * 100.0), cos(grayscale * 50.0), sin(grayscale * 10.0));
+            grayscale = 0.5 + sin(normal.x) * part + sin(normal.y) * part + sin(normal.z) * part * colorModifier.w;
+            float3 color1 = float3(sin(grayscale * 100.0 * colorModifier.x), cos(grayscale * 50.0 * colorModifier.y), sin(grayscale * 10.0 * colorModifier.z));
             float3 color2 = float3(grayscale, grayscale, grayscale);
-            return lerp(color1, color2, sin(normal.x * 100.0));
+            return lerp(color1, color2, sin(normal.x * 100.0 * colorModifier.w));
         case 17:
             part = 0.5 / 1.5;
-            grayscale = 0.5 + sin(normal.x) * part + sin(normal.y) * part + sin(normal.z) * part;
-            return convertHslToRgb(float3(sin(grayscale), cos(grayscale), sin(grayscale * grayscale)));
+            grayscale = 0.5 + sin(normal.x) * part + sin(normal.y) * part + sin(normal.z) * part * colorModifier.w;
+            return convertHslToRgb(float3(sin(grayscale * colorModifier.x), cos(grayscale * colorModifier.y), sin(grayscale * grayscale * colorModifier.z)));
         case 18:
-            return convertHslToRgb(float3(sin(normal.x), cos(normal.y), sin(normal.z)));
+            return convertHslToRgb(float3(sin(normal.x * colorModifier.x), cos(normal.y * colorModifier.y), sin(normal.z * colorModifier.z)));
         case 19:
-            return convertHslToRgb(float3(normal.x, normal.y, normal.z));
+            return convertHslToRgb(float3(normal.x, normal.y, normal.z)) * colorModifier.xyz;
         default:
             return float3(0.5, 0.5, 0);
     }

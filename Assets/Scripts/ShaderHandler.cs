@@ -26,7 +26,7 @@ public class ShaderHandler : MonoBehaviour
     [SerializeField, Range(0, 10)] private float iterationsSensitivity;
     [SerializeField, Range(0, 1)] private float zoomSensitivity;
     [SerializeField, Range(0, 2)] private float rollSensitivity;
-    [SerializeField, Range(0, 10)] private float colorModifierSensitvity;
+    [SerializeField, Range(0, 10)] private float colorModifierSensitivity;
     [SerializeField, Range(0, 10)] private float scaleSensitivity;
     [SerializeField, Range(0, 10)] private float boundsSensitivity;
     [SerializeField, Range(0, 10)] private float minDistSensitivity;
@@ -52,7 +52,10 @@ public class ShaderHandler : MonoBehaviour
     private float timeSpeed;
     private float moveSpeed;
     private int iterations;
-    private float colorModifier;
+    private float colorModifier1;
+    private float colorModifier2;
+    private float colorModifier3;
+    private float colorModifier4;
     private float scale;
     private float bounds;
     private float minDist;
@@ -100,7 +103,10 @@ public class ShaderHandler : MonoBehaviour
         iterations = baseIterations;
         functionNum = baseFunctionNum;
         colorNum = baseColorNum;
-        colorModifier = baseColorModifier;
+        colorModifier1 = baseColorModifier;
+        colorModifier2 = baseColorModifier;
+        colorModifier3 = baseColorModifier;
+        colorModifier4 = baseColorModifier;
         scale = baseScale;
         bounds = baseBounds;
         minDist = baseMinDist;
@@ -128,7 +134,7 @@ public class ShaderHandler : MonoBehaviour
 
         transform.localEulerAngles = new Vector3(cameraRotationY, cameraRotationX, cameraRotationZ);
 
-        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + "_S" + scale + "_I" + iterations + "_CM" + colorModifier + "_B" + bounds + "_MD" + minDist;
+        frameName = "N" + functionNum + "_C" + colorNum + "_T" + lastTime + "_P" + transform.position.x + ";" + transform.position.y + ";" + transform.position.y + "_F" + mainCamera.fieldOfView + "_R" + cameraRotationX + ";" + cameraRotationY + "_S" + scale + "_I" + iterations + "_CM" + colorModifier1 + ";" + colorModifier2 + ";" + colorModifier3 + ";" + colorModifier4 + "_B" + bounds + "_MD" + minDist;
         Debug.Log(frameName);
 
         float scroll = Input.GetAxis("Mouse ScrollWheel");
@@ -147,9 +153,21 @@ public class ShaderHandler : MonoBehaviour
             iterations = Mathf.RoundToInt(iterations * Mathf.Abs(1 + scroll * iterationsSensitivity));
             iterations = Mathf.Clamp(iterations, 1, 999999999);
         }
-        else if (Input.GetKey(KeyCode.C))
+        else if (Input.GetKey(KeyCode.G))
         {
-            colorModifier *= Mathf.Abs(1 + scroll * colorModifierSensitvity);
+            colorModifier1 *= Mathf.Abs(1 + scroll * colorModifierSensitivity);
+        }
+        else if (Input.GetKey(KeyCode.H))
+        {
+            colorModifier2 *= Mathf.Abs(1 + scroll * colorModifierSensitivity);
+        }
+        else if (Input.GetKey(KeyCode.J))
+        {
+            colorModifier3 *= Mathf.Abs(1 + scroll * colorModifierSensitivity);
+        }
+        else if (Input.GetKey(KeyCode.K))
+        {
+            colorModifier4 *= Mathf.Abs(1 + scroll * colorModifierSensitivity);
         }
         else if (Input.GetKey(KeyCode.X))
         {
@@ -256,9 +274,24 @@ public class ShaderHandler : MonoBehaviour
                 scale = baseScale;
             }
 
-            if (Input.GetKeyDown(KeyCode.C))
+            if (Input.GetKeyDown(KeyCode.G))
             {
-                colorModifier = baseColorModifier;
+                colorModifier1 = baseColorModifier;
+            }
+
+            if (Input.GetKeyDown(KeyCode.H))
+            {
+                colorModifier2 = baseColorModifier;
+            }
+
+            if (Input.GetKeyDown(KeyCode.J))
+            {
+                colorModifier3 = baseColorModifier;
+            }
+
+            if (Input.GetKeyDown(KeyCode.K))
+            {
+                colorModifier4 = baseColorModifier;
             }
 
             if (Input.GetKeyDown(KeyCode.B))
@@ -301,7 +334,7 @@ public class ShaderHandler : MonoBehaviour
         rayMarchingShader.SetInt("FunctionNum", functionNum);
         rayMarchingShader.SetInt("ColorNum", colorNum);
         rayMarchingShader.SetFloat("Scale", scale);
-        rayMarchingShader.SetFloat("ColorModifier", colorModifier);
+        rayMarchingShader.SetFloats("ColorModifier", colorModifier1, colorModifier2, colorModifier3, colorModifier4);
         rayMarchingShader.SetFloat("Bounds", bounds);
         rayMarchingShader.SetFloat("MinDist", minDist);
 
